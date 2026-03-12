@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 📚 Library Manager | Next.js, MongoDB & TanStack
 
-## Getting Started
+Système de gestion de bibliothèque haute performance bâti avec **Next.js 16 (App Router)**. Cette application propose une double interface (Lecteurs et Bibliothécaires), s'appuyant sur **MongoDB** pour la flexibilité des données et **Auth.js** pour une authentification sécurisée par rôles.
 
-First, run the development server:
+## 🚀 Stack Technique
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **Framework :** [Next.js 16 (App Router)](https://nextjs.org/)
+- **Langage :** [TypeScript](https://www.typescript.org/)
+- **Base de données :** [MongoDB](https://www.mongodb.com/) avec [Mongoose](https://mongoosejs.com/)
+- **Authentification :** [Auth.js (v5)](https://authjs.dev/)
+- **Gestion des données :** [TanStack Query (React Query)](https://tanstack.com/query) pour le fetch et le cache.
+- **Tableaux :** [TanStack Table (React Table)](https://tanstack.com/table) pour la gestion des listes de livres.
+- **UI & Design :** [Shadcn UI](https://ui.shadcn.com/) & [Tailwind CSS](https://tailwindcss.com/)
+- **Gestion de formulaires :** [React Hook Form](https://react-hook-form.com/) avec validation [Zod](https://zod.dev/)
+- **Thèmes :** [Next-Themes](https://github.com/pacocoursey/next-themes) (Mode sombre/clair)
+- **État Global :** Context API (`main-context`)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠 Fonctionnalités
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 📖 Côté Lecteur (Utilisateur)
+- **Catalogue Optimisé :** Affichage performant des livres avec mise en cache via React Query.
+- **Tableau de bord :** Suivi des emprunts actifs et historique de lecture.
+- **Interface Fluide :** Changement de thèmes et composants accessibles via Shadcn UI.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 🔐 Côté Bibliothécaire (Admin)
+- **Gestion de l'Inventaire :** Tableaux complexes avec tri, filtrage et pagination via TanStack Table.
+- **Validation Robuste :** Formulaires sécurisés avec React Hook Form et Zod.
+- **Sécurité :** Routes administratives protégées par middleware selon les rôles.
 
-## Learn More
+## 📁 Structure du Projet
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+├── app/
+│   ├── (auth)/           # Connexion et Inscription
+│   ├── (reader)/         # Catalogue et profil utilisateur
+│   ├── admin/            # Dashboard bibliothécaire (Protégé)
+│   └── api/              # Routes API (Endpoints pour React Query)
+├── components/           
+│   ├── ui/               # Composants Shadcn UI
+│   ├── tables/           # Configurations TanStack Table
+│   └── shared/           # Composants métier réutilisables
+├── context/
+│   └── main-context.tsx  # État global (Sidebar, Rôles)
+├── lib/
+│   ├── models/           # Schémas Mongoose (Book, User, Loan)
+│   ├── validation/       # Schémas de validation Zod
+│   ├── mongodb.ts        # Singleton de connexion base de données
+│   └── query-client.ts   # Configuration TanStack Query
+└── auth.ts               # Configuration Auth.js
