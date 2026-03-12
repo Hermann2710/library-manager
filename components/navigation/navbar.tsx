@@ -61,7 +61,7 @@ export function Navbar() {
                                         <Library className="h-5 w-5 text-primary" /> LibManager
                                     </SheetTitle>
                                 </SheetHeader>
-                                <div className="flex flex-col gap-4 mt-8">
+                                <div className="flex flex-col gap-4 mt-8 px-5">
                                     {navLinks.map((link) => (
                                         <Link key={link.href} href={link.href} className="text-lg font-semibold hover:text-primary">
                                             {link.title}
