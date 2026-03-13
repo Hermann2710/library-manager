@@ -1,11 +1,11 @@
 "use client"
 
 import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { itemSchema } from "@/lib/validation/item";
-import { createItem, updateItem, getLocations } from "@/actions/item-actions";
+import { createItem, updateItem } from "@/actions/item-actions";
 import { getWorks } from "@/actions/work-actions";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
@@ -14,7 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@/components/ui/select";
+import { getLocations } from "@/actions/location-actions";
 
 export function ItemDialog({ isOpen, onOpenChange, item }: any) {
     const queryClient = useQueryClient();
@@ -23,12 +30,14 @@ export function ItemDialog({ isOpen, onOpenChange, item }: any) {
     const { data: works = [] } = useQuery({ queryKey: ["works"], queryFn: () => getWorks() });
     const { data: locations = [] } = useQuery({ queryKey: ["locations"], queryFn: () => getLocations() });
 
-    const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm({
+    const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm({
         resolver: zodResolver(itemSchema as any),
         defaultValues: {
             status: "Available",
             condition: "Good",
-            barcode: ""
+            barcode: "",
+            work: "",
+            location: ""
         }
     });
 
@@ -37,10 +46,13 @@ export function ItemDialog({ isOpen, onOpenChange, item }: any) {
             reset({
                 ...item,
                 work: item.work?._id || item.work,
-                location: item.location?._id || item.location
+                location: item.location?._id || item.location,
+                status: item.status,
+                condition: item.condition,
+                barcode: item.barcode
             });
         } else {
-            reset({ status: "Available", condition: "Good", barcode: "" });
+            reset({ status: "Available", condition: "Good", barcode: "", work: "", location: "" });
         }
     }, [item, reset, isOpen]);
 
@@ -54,12 +66,6 @@ export function ItemDialog({ isOpen, onOpenChange, item }: any) {
         onError: (err: any) => toast.error(err.message)
     });
 
-    const generateBarcode = () => {
-        const date = new Date().getFullYear();
-        const random = Math.floor(1000 + Math.random() * 9000);
-        setValue("barcode", `LIB-${date}-${random}`);
-    };
-
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-md">
@@ -68,60 +74,117 @@ export function ItemDialog({ isOpen, onOpenChange, item }: any) {
                 </DialogHeader>
 
                 <form onSubmit={handleSubmit((d) => mutate(d))} className="space-y-4">
+                    {/* Sélection de l'œuvre */}
                     <div className="space-y-2">
                         <Label>Œuvre correspondante</Label>
-                        <select {...register("work")} className="w-full h-10 border rounded-md px-3 text-sm">
-                            <option value="">Sélectionner une œuvre...</option>
-                            {works.map((w: any) => (
-                                <option key={w._id} value={w._id}>{w.title}</option>
-                            ))}
-                        </select>
+                        <Controller
+                            control={control}
+                            name="work"
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Choisir une œuvre" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} className="w-(--radix-select-trigger-width)">
+                                        {works.length > 0 ? works.map((w: any) => (
+                                            <SelectItem key={w._id} value={w._id}>
+                                                {w.title}
+                                            </SelectItem>
+                                        )) : <SelectItem value="none" disabled>Aucune œuvre disponible</SelectItem>}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
                         {errors.work && <p className="text-xs text-destructive">{errors.work.message as string}</p>}
                     </div>
 
+                    {/* Code-barres */}
                     <div className="space-y-2">
                         <Label>Code-barres unique</Label>
                         <div className="flex gap-2">
-                            <Input {...register("barcode")} placeholder="Ex: LIB-2026-0001" />
-                            <Button type="button" variant="outline" size="icon" onClick={generateBarcode}>
+                            <Input {...register("barcode")} placeholder="Ex: LIB-2026-0001" className="flex-1" />
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setValue("barcode", `LIB-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`, { shouldValidate: true })}
+                            >
                                 <RefreshCw className="h-4 w-4" />
                             </Button>
                         </div>
+                        {errors.barcode && <p className="text-xs text-destructive">{errors.barcode.message as string}</p>}
                     </div>
 
+                    {/* État et Statut */}
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>État physique</Label>
-                            <select {...register("condition")} className="w-full h-10 border rounded-md px-3 text-sm">
-                                <option value="New">Neuf</option>
-                                <option value="Good">Bon état</option>
-                                <option value="Worn">Usé</option>
-                                <option value="Damaged">Abîmé</option>
-                            </select>
+                            <Controller
+                                control={control}
+                                name="condition"
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4} className="w-(--radix-select-trigger-width)">
+                                            <SelectItem value="New">Neuf</SelectItem>
+                                            <SelectItem value="Good">Bon état</SelectItem>
+                                            <SelectItem value="Worn">Usé</SelectItem>
+                                            <SelectItem value="Damaged">Abîmé</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         </div>
                         <div className="space-y-2">
                             <Label>Statut</Label>
-                            <select {...register("status")} className="w-full h-10 border rounded-md px-3 text-sm">
-                                <option value="Available">Disponible</option>
-                                <option value="Maintenance">En réparation</option>
-                                <option value="Lost">Perdu</option>
-                            </select>
+                            <Controller
+                                control={control}
+                                name="status"
+                                render={({ field }) => (
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <SelectTrigger className="w-full">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent position="popper" sideOffset={4} className="w-(--radix-select-trigger-width)">
+                                            <SelectItem value="Available">Disponible</SelectItem>
+                                            <SelectItem value="Maintenance">Maintenance</SelectItem>
+                                            <SelectItem value="Lost">Perdu</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
+                            />
                         </div>
                     </div>
 
+                    {/* Emplacement */}
                     <div className="space-y-2">
                         <Label>Emplacement (Rayon/Salle)</Label>
-                        <select {...register("location")} className="w-full h-10 border rounded-md px-3 text-sm">
-                            <option value="">Choisir un emplacement...</option>
-                            {locations.map((l: any) => (
-                                <option key={l._id} value={l._id}>{l.name}</option>
-                            ))}
-                        </select>
+                        <Controller
+                            control={control}
+                            name="location"
+                            render={({ field }) => (
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                    <SelectTrigger className="w-full">
+                                        <SelectValue placeholder="Choisir un emplacement" />
+                                    </SelectTrigger>
+                                    <SelectContent position="popper" sideOffset={4} className="w-(--radix-select-trigger-width)">
+                                        {locations.map((l: any) => (
+                                            <SelectItem key={l._id} value={l._id}>
+                                                {l.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
+                        />
+                        {errors.location && <p className="text-xs text-destructive">{errors.location.message as string}</p>}
                     </div>
 
-                    <DialogFooter className="pt-4">
+                    <DialogFooter className="pt-4 border-t">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
-                        <Button type="submit" disabled={isPending}>Confirmer</Button>
+                        <Button type="submit" disabled={isPending}>{isPending ? "Enregistrement..." : (isEditing ? "Mettre à jour" : "Sauvegarder")}</Button>
                     </DialogFooter>
                 </form>
             </DialogContent>

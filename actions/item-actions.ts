@@ -2,7 +2,6 @@
 
 import { revalidatePath } from 'next/cache';
 import { Item } from '@/lib/models/Item';
-import { Location } from '@/lib/models/Location';
 import '@/lib/models/Work';
 import { itemSchema } from '@/lib/validation/item';
 import dbConnect from '@/lib/mongodb';
@@ -11,8 +10,15 @@ export async function getItems() {
     try {
         await dbConnect();
         const items = await Item.find()
-            .populate({ path: 'work', select: 'title authors coverImage' })
-            .populate('location')
+            .populate({
+                path: 'work',
+                select: 'title authors coverImage',
+                populate: {
+                    path: 'authors',
+                    select: 'firstName lastName' 
+                }
+            })
+            .populate('location', 'name')
             .sort({ createdAt: -1 });
         return JSON.parse(JSON.stringify(items));
     } catch (error) {
@@ -58,11 +64,4 @@ export async function deleteItem(id: string) {
     } catch (error) {
         throw new Error("Erreur de suppression");
     }
-}
-
-// Action pour récupérer les emplacements (Rayons/Salles)
-export async function getLocations() {
-    await dbConnect();
-    const locations = await Location.find().sort({ name: 1 });
-    return JSON.parse(JSON.stringify(locations));
 }
