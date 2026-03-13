@@ -30,7 +30,7 @@ export function WorkDialog({ isOpen, onOpenChange, work }: any) {
 
     const { register, handleSubmit, reset, formState: { errors } } = useForm({
         resolver: zodResolver(workSchema as any),
-        defaultValues: { title: "", language: "Français", authors: [], genres: [] }
+        defaultValues: { title: "", language: "Anglais", authors: [], genres: [] }
     });
 
     useEffect(() => {
@@ -44,7 +44,7 @@ export function WorkDialog({ isOpen, onOpenChange, work }: any) {
                 publishDate: work.publishDate ? new Date(work.publishDate).toISOString().split('T')[0] : undefined
             });
         } else {
-            reset({ title: "", language: "Français", authors: [], genres: [] });
+            reset({ title: "", language: "Anglais", authors: [], genres: [] });
         }
     }, [work, reset, isOpen]);
 

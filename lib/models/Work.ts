@@ -19,7 +19,7 @@ const WorkSchema = new Schema<IWork>({
   title: { type: String, required: true },
   description: { type: String },
   isbn: { type: String, unique: true, sparse: true },
-  language: { type: String, default: "Français" },
+  language: { type: String, default: "Anglais" },
   publishDate: { type: Date },
   publisher: { type: Schema.Types.ObjectId, ref: "Publisher", required: true },
   category: { type: Schema.Types.ObjectId, ref: "Category", required: true },

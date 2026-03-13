@@ -4,7 +4,7 @@ export const workSchema = z.object({
   title: z.string().min(2, "Le titre est requis"),
   description: z.string().optional(),
   isbn: z.string().optional().or(z.literal("")),
-  language: z.string().min(2, "La langue est requise"),
+  language: z.string().min(2, "La langue est requise").default("Anglais"),
   publishDate: z.coerce.date().optional(),
   publisher: z.string().min(1, "L'éditeur est requis"),
   category: z.string().min(1, "La catégorie est requise"),
