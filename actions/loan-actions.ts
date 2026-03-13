@@ -33,36 +33,73 @@ export async function reserveItem(itemId: string) {
         const session = await auth();
         if (!session) throw new Error("Vous devez être connecté");
 
-        // 1. Trouver le membre lié à l'utilisateur
         const member = await Member.findOne({ user: session.user.id });
         if (!member) throw new Error("Profil membre introuvable");
 
-        // 2. Vérifications (Banni, Expiré, Limite de 3)
         if (member.status !== "Active") throw new Error("Votre compte n'est pas actif");
-        if (new Date(member.membershipExpiresAt) < new Date()) throw new Error("Votre adhésion a expiré");
+        
+        // Vérification de la date d'expiration
+        if (member.membershipExpiresAt && new Date(member.membershipExpiresAt) < new Date()) {
+            throw new Error("Votre adhésion a expiré");
+        }
 
-        const activeCount = await Loan.countDocuments({ member: member._id, status: { $in: ["Active", "Pending"] } });
-        if (activeCount >= 3) throw new Error("Vous avez atteint la limite de 3 livres (emprunts + réservations)");
+        const activeCount = await Loan.countDocuments({ 
+            member: member._id, 
+            status: { $in: ["Active", "Pending"] } 
+        });
+        
+        if (activeCount >= 3) throw new Error("Limite de 3 livres atteinte");
 
-        // 3. Vérifier l'exemplaire
         const item = await Item.findById(itemId);
         if (!item || item.status !== "Available") throw new Error("Exemplaire non disponible");
 
-        // 4. Création en statut 'Pending'
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 14);
 
+        // Création sans le champ librarian
         await Loan.create({
             item: itemId,
             member: member._id,
-            librarian: "65f123456789..." , // ID temporaire ou null tant que non validé
-            status: "Pending",
+            status: "Pending", // Maintenant accepté par l'enum
             dueDate
         });
 
+        // On marque l'exemplaire comme réservé
         await Item.findByIdAndUpdate(itemId, { status: "Reserved" });
 
-        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/search');
+        return { success: true };
+    } catch (error: any) {
+        return { error: error.message };
+    }
+}
+
+export async function cancelReservation(loanId: string) {
+    try {
+        await dbConnect();
+        const session = await auth();
+        if (!session) throw new Error("Non autorisé");
+
+        const loan = await Loan.findById(loanId);
+        if (!loan) throw new Error("Réservation introuvable");
+
+        // Sécurité : Vérifier que c'est bien le membre qui annule sa propre réservation
+        const member = await Member.findOne({ user: session.user.id });
+        if (!member || loan.member.toString() !== member._id.toString()) {
+            throw new Error("Action non autorisée");
+        }
+
+        if (loan.status !== "Pending") {
+            throw new Error("Seules les réservations en attente peuvent être annulées");
+        }
+
+        // 1. Remettre l'exemplaire en disponible
+        await Item.findByIdAndUpdate(loan.item, { status: "Available" });
+
+        // 2. Supprimer la ligne de prêt (ou la marquer comme annulée si tu préfères garder une trace)
+        await Loan.findByIdAndDelete(loanId);
+
+        revalidatePath('/dashboard/my-loans');
         return { success: true };
     } catch (error: any) {
         return { error: error.message };
