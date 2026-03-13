@@ -5,10 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getLocations, deleteLocation } from "@/actions/location-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
-import { Plus, MapPinned } from "lucide-react";
+import { Plus, MapPinned, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { LocationDialog } from "@/components/dashboard/location/location-dialog";
 import { getLocationColumns } from "@/components/dashboard/location/columns";
+import { DashboardContainer } from "@/components/shared/dashboard-container";
 
 export default function LocationsPage() {
     const queryClient = useQueryClient();
@@ -35,28 +36,43 @@ export default function LocationsPage() {
     };
 
     return (
-        <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Emplacements</h1>
-                    <p className="text-muted-foreground text-sm">Configurez les zones de stockage physiques.</p>
-                </div>
-                <Button onClick={() => { setSelectedLocation(null); setIsOpen(true); }}>
+        <DashboardContainer
+            title="EMPLACEMENTS"
+            subtitle="Logistique"
+            description="Configurez les zones de stockage physiques, les rayons et les bibliothèques de l'établissement."
+            actions={
+                <Button
+                    onClick={() => { setSelectedLocation(null); setIsOpen(true); }}
+                    className="rounded-full font-black uppercase text-[10px] tracking-widest px-6 italic"
+                >
                     <Plus className="mr-2 h-4 w-4" /> Ajouter une zone
                 </Button>
-            </div>
+            }
+        >
+            <div className="space-y-6">
+                <div className="rounded-md p-4 border bg-card shadow-sm overflow-hidden">
+                    <DataTable
+                        columns={getLocationColumns(handleEdit, (id) => remove(id))}
+                        data={data}
+                        loading={isLoading}
+                    />
+                </div>
 
-            <DataTable
-                columns={getLocationColumns(handleEdit, (id) => remove(id))}
-                data={data}
-                loading={isLoading}
-            />
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-12 gap-3">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary/30" />
+                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                            Cartographie des rayons...
+                        </p>
+                    </div>
+                )}
+            </div>
 
             <LocationDialog
                 isOpen={isOpen}
                 onOpenChange={setIsOpen}
                 location={selectedLocation}
             />
-        </div>
+        </DashboardContainer>
     );
 }

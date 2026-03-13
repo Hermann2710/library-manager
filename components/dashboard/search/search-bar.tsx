@@ -21,7 +21,7 @@ export default function SearchBar({ defaultValue }: { defaultValue: string }) {
     }
 
     return (
-        <div className="relative max-w-md">
+        <div className="relative">
             <Search className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${isPending ? "text-primary animate-pulse" : "text-muted-foreground"}`} />
             <Input
                 placeholder="Rechercher par titre, auteur..."

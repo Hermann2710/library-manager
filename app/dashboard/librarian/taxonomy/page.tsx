@@ -3,29 +3,51 @@
 import { CategoryManager } from "@/components/dashboard/categories/category-manager"
 import { GenreManager } from "@/components/dashboard/ganres/genre-manager"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DashboardContainer } from "@/components/shared/dashboard-container"
+import { Tags, Bookmark } from "lucide-react"
 
 export default function TaxonomyPage() {
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-1">
-                <h1 className="text-3xl font-bold tracking-tight">Taxonomie</h1>
-                <p className="text-muted-foreground">Organisez le catalogue par catégories thématiques et genres littéraires.</p>
-            </div>
-
+        <DashboardContainer
+            title="TAXONOMIE"
+            subtitle="Organisation"
+            description="Structurez le catalogue en gérant les catégories thématiques et les genres littéraires."
+            actions={
+                <div className="bg-primary/10 p-2 rounded-xl border border-primary/20">
+                    <Tags className="h-5 w-5 text-primary" />
+                </div>
+            }
+        >
             <Tabs defaultValue="categories" className="w-full">
-                <TabsList className="grid w-full max-w-100 grid-cols-2">
-                    <TabsTrigger value="categories">Catégories</TabsTrigger>
-                    <TabsTrigger value="genres">Genres</TabsTrigger>
+                <TabsList className="grid w-full max-w-md grid-cols-2 bg-muted/50 p-1 h-12 rounded-xl">
+                    <TabsTrigger
+                        value="categories"
+                        className="gap-2 font-black uppercase text-[10px] tracking-widest italic"
+                    >
+                        Catégories
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="genres"
+                        className="gap-2 font-black uppercase text-[10px] tracking-widest italic"
+                    >
+                        Genres
+                    </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="categories" className="mt-6">
-                    <CategoryManager />
-                </TabsContent>
+                <div className="mt-8">
+                    <TabsContent value="categories" className="outline-none animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="bg-card rounded-[2rem] border p-6 shadow-sm">
+                            <CategoryManager />
+                        </div>
+                    </TabsContent>
 
-                <TabsContent value="genres" className="mt-6">
-                    <GenreManager />
-                </TabsContent>
+                    <TabsContent value="genres" className="outline-none animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="bg-card rounded-[2rem] border p-6 shadow-sm">
+                            <GenreManager />
+                        </div>
+                    </TabsContent>
+                </div>
             </Tabs>
-        </div>
+        </DashboardContainer>
     )
 }

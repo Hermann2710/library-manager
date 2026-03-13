@@ -5,10 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getWorks, deleteWork } from "@/actions/work-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
-import { Plus, Library } from "lucide-react";
+import { Plus, Library, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getWorkColumns } from "@/components/dashboard/works/columns";
 import { WorkDialog } from "@/components/dashboard/works/work-dialog";
+import { DashboardContainer } from "@/components/shared/dashboard-container";
 
 export default function WorksPage() {
     const queryClient = useQueryClient();
@@ -29,33 +30,46 @@ export default function WorksPage() {
     });
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                        <Library className="h-6 w-6 text-primary" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Catalogue</h1>
-                        <p className="text-muted-foreground text-sm">Gestion des œuvres et des références bibliographiques.</p>
-                    </div>
-                </div>
-                <Button onClick={() => { setSelectedWork(null); setIsDialogOpen(true); }}>
+        <DashboardContainer
+            title="CATALOGUE"
+            subtitle="Inventaire"
+            description="Gérez les références bibliographiques, les auteurs et les métadonnées des œuvres."
+            actions={
+                <Button
+                    onClick={() => { setSelectedWork(null); setIsDialogOpen(true); }}
+                    className="rounded-full font-black uppercase text-[10px] tracking-widest px-6 italic"
+                >
                     <Plus className="mr-2 h-4 w-4" /> Ajouter une œuvre
                 </Button>
-            </div>
+            }
+        >
+            <div className="space-y-6">
+                <div className="rounded-sm p-4 border bg-card shadow-sm overflow-hidden">
+                    <DataTable
+                        columns={getWorkColumns(
+                            (w) => { setSelectedWork(w); setIsDialogOpen(true); },
+                            (id) => deleteMutation.mutate(id)
+                        )}
+                        data={works}
+                        loading={isLoading}
+                    />
+                </div>
 
-            <DataTable
-                columns={getWorkColumns((w) => { setSelectedWork(w); setIsDialogOpen(true); }, (id) => deleteMutation.mutate(id))}
-                data={works}
-                loading={isLoading}
-            />
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                            Indexation du catalogue...
+                        </p>
+                    </div>
+                )}
+            </div>
 
             <WorkDialog
                 isOpen={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
                 work={selectedWork}
             />
-        </div>
+        </DashboardContainer>
     );
 }

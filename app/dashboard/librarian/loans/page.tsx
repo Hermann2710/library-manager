@@ -6,10 +6,9 @@ import { getLoans } from "@/actions/loan-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { getLoanColumns } from "@/components/dashboard/loans/columns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ClipboardList, Clock, CheckCircle2, Search, X } from "lucide-react";
+import { ClipboardList, Clock, CheckCircle2, Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { DashboardContainer } from "@/components/shared/dashboard-container";
 
 export default function LibrarianLoansPage() {
     const [searchTerm, setSearchTerm] = useState("");
@@ -30,62 +29,57 @@ export default function LibrarianLoansPage() {
     const activeLoans = filteredData.filter((l: any) => l.status === "Active" || l.status === "Overdue");
 
     return (
-        <div className="flex flex-col gap-8 p-8 max-w-7xl mx-auto">
-            {/* Header & Recherche */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                        <ClipboardList className="h-6 w-6" />
-                    </div>
-                    <h1 className="text-2xl font-black tracking-tighter">GESTION DES EMPRUNTS</h1>
-                </div>
-
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <DashboardContainer
+            title="GESTION DES EMPRUNTS"
+            subtitle="Opérations"
+            description="Validez les réservations en attente et suivez les exemplaires actuellement en circulation."
+            actions={
+                <div className="relative w-full sm:w-80 group">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                     <Input
-                        placeholder="Rechercher..."
+                        placeholder="Rechercher un membre ou un titre..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 h-11 bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary"
+                        className="pl-9 h-10 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary rounded-full text-xs font-medium"
                     />
                 </div>
-            </div>
-
-            <Tabs defaultValue="pending" className="w-full">
-                <TabsList className="inline-flex bg-muted/50 p-1 h-11 mb-4">
-                    <TabsTrigger value="pending" className="gap-2 px-6 font-bold text-xs uppercase tracking-widest">
+            }
+        >
+            <Tabs defaultValue="pending" className="w-full space-y-6">
+                <TabsList className="bg-muted/50 p-1 h-12 rounded-xl inline-flex w-full sm:w-auto">
+                    <TabsTrigger
+                        value="pending"
+                        className="gap-2 px-6 font-black uppercase text-[10px] tracking-widest italic"
+                    >
                         <Clock className="h-4 w-4" /> À valider ({pendingLoans.length})
                     </TabsTrigger>
-                    <TabsTrigger value="active" className="gap-2 px-6 font-bold text-xs uppercase tracking-widest">
+                    <TabsTrigger
+                        value="active"
+                        className="gap-2 px-6 font-black uppercase text-[10px] tracking-widest italic"
+                    >
                         <CheckCircle2 className="h-4 w-4" /> En cours ({activeLoans.length})
                     </TabsTrigger>
                 </TabsList>
 
                 {isLoading ? (
-                    <TableSkeleton />
+                    <div className="flex flex-col items-center justify-center py-24 gap-4 bg-muted/5 rounded-[2.5rem] border border-dashed">
+                        <Loader2 className="h-10 w-10 animate-spin text-primary/20" />
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground">
+                            Analyse du registre...
+                        </p>
+                    </div>
                 ) : (
-                    <>
-                        <TabsContent value="pending" className="mt-0 outline-none">
-                            {/* Suppression de la bordure et du shadow, on laisse la DataTable gérer son padding interne */}
+                    <div className="rounded-md p-4 border bg-card shadow-sm overflow-hidden animate-in fade-in duration-500">
+                        <TabsContent value="pending" className="m-0 outline-none">
                             <DataTable columns={getLoanColumns()} data={pendingLoans} />
                         </TabsContent>
 
-                        <TabsContent value="active" className="mt-0 outline-none">
+                        <TabsContent value="active" className="m-0 outline-none">
                             <DataTable columns={getLoanColumns()} data={activeLoans} />
                         </TabsContent>
-                    </>
+                    </div>
                 )}
             </Tabs>
-        </div>
-    );
-}
-
-function TableSkeleton() {
-    return (
-        <div className="space-y-3">
-            {[...Array(5)].map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full rounded-xl opacity-50" />
-            ))}
-        </div>
+        </DashboardContainer>
     );
 }

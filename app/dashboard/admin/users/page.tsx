@@ -4,8 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAllUsers, deleteUserAccount } from "@/actions/user-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { getUserColumns } from "@/components/dashboard/users/columns";
-import { Users, ShieldAlert } from "lucide-react";
+import { ShieldAlert, Users, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { DashboardContainer } from "@/components/shared/dashboard-container";
 
 export default function AdminUsersPage() {
     const queryClient = useQueryClient();
@@ -25,24 +26,36 @@ export default function AdminUsersPage() {
     });
 
     return (
-        <div className="flex flex-col gap-6 p-4">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-rose-500/10 rounded-lg text-rose-600">
-                        <ShieldAlert className="h-6 w-6" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Gestion des Comptes</h1>
-                        <p className="text-muted-foreground text-sm">Contrôlez les accès et les permissions du système.</p>
-                    </div>
+        <DashboardContainer
+            title="GESTION DES COMPTES"
+            subtitle="Administration"
+            description="Contrôlez les accès utilisateurs, modifiez les permissions et révoquez les accès au système."
+            actions={
+                <div className="flex items-center gap-2 bg-rose-500/10 text-rose-600 px-3 py-1.5 rounded-full border border-rose-500/20 shadow-sm">
+                    <ShieldAlert className="h-4 w-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Zone Critique</span>
                 </div>
-            </div>
+            }
+        >
+            <div className="space-y-6">
+                {/* Statistiques rapides ou filtres peuvent aller ici */}
+                <div className="p-4  rounded-sm border bg-card shadow-sm overflow-hidden">
+                    <DataTable
+                        columns={getUserColumns((id) => remove(id))}
+                        data={data}
+                        loading={isLoading}
+                    />
+                </div>
 
-            <DataTable
-                columns={getUserColumns((id) => remove(id))}
-                data={data}
-                loading={isLoading}
-            />
-        </div>
+                {isLoading && (
+                    <div className="flex items-center justify-center py-10 gap-3">
+                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                            Sécurisation des données...
+                        </p>
+                    </div>
+                )}
+            </div>
+        </DashboardContainer>
     );
 }

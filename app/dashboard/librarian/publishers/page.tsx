@@ -5,10 +5,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPublishers, deletePublisher } from "@/actions/publisher-actions";
 import { DataTable } from "@/components/shared/data-table";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, Landmark, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { getPublisherColumns } from "@/components/dashboard/publishers/columns";
 import { PublisherDialog } from "@/components/dashboard/publishers/publisher-dialog";
+import { DashboardContainer } from "@/components/shared/dashboard-container";
 
 export default function PublishersPage() {
     const queryClient = useQueryClient();
@@ -34,28 +35,43 @@ export default function PublishersPage() {
     };
 
     return (
-        <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Éditeurs</h1>
-                    <p className="text-muted-foreground">Gérez les maisons d'édition partenaires.</p>
-                </div>
-                <Button onClick={() => { setSelectedPublisher(null); setIsDialogOpen(true); }}>
-                    <Plus className="mr-2 h-4 w-4" /> Ajouter
+        <DashboardContainer
+            title="ÉDITEURS"
+            subtitle="Partenaires"
+            description="Gérez les maisons d'édition, leurs coordonnées et leur historique de publication."
+            actions={
+                <Button
+                    onClick={() => { setSelectedPublisher(null); setIsDialogOpen(true); }}
+                    className="rounded-full font-black uppercase text-[10px] tracking-widest px-6 italic"
+                >
+                    <Plus className="mr-2 h-4 w-4" /> Ajouter un éditeur
                 </Button>
-            </div>
+            }
+        >
+            <div className="space-y-6">
+                <div className="rounded-md p-4 border bg-card shadow-sm overflow-hidden">
+                    <DataTable
+                        columns={getPublisherColumns(handleEdit, (id) => deleteMutation.mutate(id))}
+                        data={publishers}
+                        loading={isLoading}
+                    />
+                </div>
 
-            <DataTable
-                columns={getPublisherColumns(handleEdit, (id) => deleteMutation.mutate(id))}
-                data={publishers}
-                loading={isLoading}
-            />
+                {isLoading && (
+                    <div className="flex flex-col items-center justify-center py-10 gap-2">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary/40" />
+                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground">
+                            Chargement des partenaires...
+                        </p>
+                    </div>
+                )}
+            </div>
 
             <PublisherDialog
                 isOpen={isDialogOpen}
                 onOpenChange={setIsDialogOpen}
                 publisher={selectedPublisher}
             />
-        </div>
+        </DashboardContainer>
     );
 }
