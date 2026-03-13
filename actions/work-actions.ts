@@ -48,19 +48,22 @@ export async function getWorkById(id: string) {
 export async function createWork(data: any) {
     try {
         await dbConnect();
-        const validatedData = workSchema.parse(data);
         
-        // Vérification optionnelle : ISBN unique
+        const { language, ...rest } = data;
+        const cleanData = { ...rest, language: String(language).trim() };
+
+        const validatedData = workSchema.parse(cleanData);
+        
         if (validatedData.isbn) {
             const existing = await Work.findOne({ isbn: validatedData.isbn });
-            if (existing) throw new Error("Cet ISBN existe déjà dans le catalogue");
+            if (existing) throw new Error("ISBN déjà utilisé");
         }
 
         const newWork = await Work.create(validatedData);
         revalidatePath('/dashboard/librarian/works');
         return JSON.parse(JSON.stringify(newWork));
     } catch (error: any) {
-        throw new Error(error.message || "Erreur lors de la création de l'œuvre");
+        throw new Error(error.message);
     }
 }
 
