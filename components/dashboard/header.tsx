@@ -1,6 +1,6 @@
 "use client"
 
-import { useSession } from "next-auth/react" // Import du hook
+import { useSession } from "next-auth/react"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -13,13 +13,12 @@ import {
 } from "@/components/ui/breadcrumb"
 import { usePathname } from "next/navigation"
 import { ThemeToggle } from "../shared/theme-toggle"
-import { Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
 import { NotificationBell } from "./notification-bell"
-import { Skeleton } from "@/components/ui/skeleton" // Pour un chargement propre
+import { GlobalSearch } from "./global-search"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export function DashboardHeader() {
-    const { data: session, status } = useSession() // Récupération de la session
+    const { data: session, status } = useSession()
     const pathname = usePathname()
     const segments = pathname.split('/').filter(Boolean)
 
@@ -54,22 +53,16 @@ export function DashboardHeader() {
                 </Breadcrumb>
             </div>
 
-            {/* CENTRE : Recherche Globale */}
+            {/* CENTRE : Recherche Globale (Modal CMD+K) */}
             <div className="flex-1 max-w-md hidden lg:block">
-                <div className="relative group">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                    <Input
-                        placeholder="Recherche rapide... (CMD + K)"
-                        className="pl-10 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary w-full"
-                    />
-                </div>
+                <GlobalSearch />
             </div>
 
             {/* DROITE : Actions contextuelles */}
             <div className="flex items-center gap-2 sm:gap-4">
-                {/* Gestion de l'affichage de la cloche selon l'état de la session */}
+                {/* Notification Bell */}
                 {status === "loading" ? (
-                    <Skeleton className="h-8 w-8 rounded-full" />
+                    <Skeleton className="h-9 w-9 rounded-full" />
                 ) : session?.user ? (
                     <NotificationBell
                         userId={session.user.id!}
