@@ -8,6 +8,7 @@ import '@/lib/models/Publisher';
 import '@/lib/models/Taxonomy'; 
 import { workSchema } from '@/lib/validation/work';
 import dbConnect from '@/lib/mongodb';
+import { createNotification } from '@/actions/notification-actions';
 
 /**
  * Récupère toutes les œuvres avec leurs relations développées
@@ -30,7 +31,7 @@ export async function getWorks() {
 }
 
 /**
- * Récupère une œuvre spécifique par son ID (utile pour la page détails)
+ * Récupère une œuvre spécifique par son ID
  */
 export async function getWorkById(id: string) {
     await dbConnect();
@@ -60,6 +61,27 @@ export async function createWork(data: any) {
         }
 
         const newWork = await Work.create(validatedData);
+
+        // 🔔 Notification pour TOUS les Lecteurs (Nouveauté catalogue)
+        await createNotification({
+            recipientRole: "reader",
+            title: "📚 Nouveau livre disponible !",
+            message: `"${newWork.title}" vient d'être ajouté au catalogue. Venez le découvrir !`,
+            type: "inventory",
+            priority: "low",
+            link: `/dashboard/search` // Redirige vers la recherche/catalogue
+        });
+
+        // 🔔 Notification pour les Admins (Audit)
+        await createNotification({
+            recipientRole: "admin",
+            title: "🆕 Œuvre créée",
+            message: `Une nouvelle fiche œuvre a été créée : "${newWork.title}".`,
+            type: "inventory",
+            priority: "low",
+            link: "/dashboard/librarian/works"
+        });
+
         revalidatePath('/dashboard/librarian/works');
         return JSON.parse(JSON.stringify(newWork));
     } catch (error: any) {
@@ -82,6 +104,15 @@ export async function updateWork(id: string, data: any) {
         );
         
         if (!updatedWork) throw new Error("Œuvre non trouvée");
+
+        // 🔔 Notification pour les Admins
+        await createNotification({
+            recipientRole: "admin",
+            title: "🔄 Fiche œuvre modifiée",
+            message: `Le titre ou les informations de "${updatedWork.title}" ont été mis à jour.`,
+            type: "inventory",
+            priority: "low"
+        });
         
         revalidatePath('/dashboard/librarian/works');
         return JSON.parse(JSON.stringify(updatedWork));
@@ -96,8 +127,19 @@ export async function updateWork(id: string, data: any) {
 export async function deleteWork(id: string) {
     try {
         await dbConnect();
-        // Plus tard, il faudra vérifier si des "Items" (exemplaires) sont liés 
-        // avant de supprimer l'œuvre parente.
+        const workToDelete = await Work.findById(id);
+
+        if (workToDelete) {
+            // 🔔 Notification pour les Admins (Action importante)
+            await createNotification({
+                recipientRole: "admin",
+                title: "🗑️ Œuvre supprimée",
+                message: `L'œuvre "${workToDelete.title}" a été définitivement retirée du catalogue.`,
+                type: "inventory",
+                priority: "medium"
+            });
+        }
+
         await Work.findByIdAndDelete(id);
         revalidatePath('/dashboard/librarian/works');
         return { success: true };

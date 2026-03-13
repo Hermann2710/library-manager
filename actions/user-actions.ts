@@ -4,13 +4,13 @@ import { revalidatePath } from 'next/cache';
 import User from '@/lib/models/User';
 import dbConnect from '@/lib/mongodb';
 import { auth } from '@/auth';
+import { createNotification } from '@/actions/notification-actions';
 
 export async function getAllUsers() {
     try {
         await dbConnect();
         const session = await auth();
         
-        // Sécurité : Seul l'admin peut lister tous les comptes
         if (session?.user?.role !== "admin") {
             throw new Error("Accès non autorisé");
         }
@@ -29,8 +29,27 @@ export async function updateUserRole(userId: string, newRole: string) {
         
         if (session?.user?.role !== "admin") throw new Error("Action interdite");
 
-        await User.findByIdAndUpdate(userId, { role: newRole });
+        const updatedUser = await User.findByIdAndUpdate(userId, { role: newRole }, { new: true });
         
+        // 🔔 Notification pour l'utilisateur concerné
+        await createNotification({
+            recipient: userId,
+            title: "🔑 Vos permissions ont changé",
+            message: `Votre rôle a été mis à jour. Vous êtes désormais : ${newRole}.`,
+            type: "system",
+            priority: "high",
+            link: "/dashboard"
+        });
+
+        // 🔔 Notification pour les autres Admins (Audit)
+        await createNotification({
+            recipientRole: "admin",
+            title: "🛡️ Changement de rôle",
+            message: `${session.user.name} a promu/rétrogradé ${updatedUser.name} au rang de ${newRole}.`,
+            type: "system",
+            priority: "medium"
+        });
+
         revalidatePath('/dashboard/admin/users');
         return { success: true };
     } catch (error) {
@@ -45,8 +64,20 @@ export async function deleteUserAccount(userId: string) {
         
         if (session?.user?.role !== "admin") throw new Error("Action interdite");
 
-        // Empêcher de se supprimer soi-même
         if (session.user.id === userId) throw new Error("Vous ne pouvez pas supprimer votre propre compte");
+
+        const userToDelete = await User.findById(userId);
+
+        // 🔔 Notification pour les autres Admins (Trace de suppression)
+        if (userToDelete) {
+            await createNotification({
+                recipientRole: "admin",
+                title: "🚨 Compte supprimé",
+                message: `Le compte de ${userToDelete.name} (${userToDelete.email}) a été définitivement supprimé par ${session.user.name}.`,
+                type: "system",
+                priority: "high"
+            });
+        }
 
         await User.findByIdAndDelete(userId);
         revalidatePath('/dashboard/admin/users');

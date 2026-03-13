@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { Location } from '@/lib/models/Location';
 import dbConnect from '@/lib/mongodb';
 import { locationSchema } from '@/lib/validation/location';
+import { createNotification } from '@/actions/notification-actions';
 
 export async function getLocations() {
     try {
@@ -24,6 +25,16 @@ export async function createLocation(data: any) {
         if (existing) throw new Error("Cet emplacement existe déjà");
 
         const newLocation = await Location.create(validatedData);
+
+        // 🔔 Notification pour les Admins
+        await createNotification({
+            recipientRole: "admin",
+            title: "📍 Nouvel emplacement",
+            message: `L'emplacement "${newLocation.name}" a été ajouté à la configuration.`,
+            type: "inventory",
+            priority: "low"
+        });
+
         revalidatePath('/dashboard/librarian/inventory'); 
         return JSON.parse(JSON.stringify(newLocation));
     } catch (error: any) {
@@ -37,6 +48,16 @@ export async function updateLocation(id: string, data: any) {
         const validatedData = locationSchema.parse(data);
         
         const updated = await Location.findByIdAndUpdate(id, validatedData, { new: true });
+
+        // 🔔 Notification de modification
+        await createNotification({
+            recipientRole: "admin",
+            title: "🔄 Emplacement modifié",
+            message: `L'emplacement "${updated.name}" a été mis à jour.`,
+            type: "inventory",
+            priority: "low"
+        });
+
         revalidatePath('/dashboard/librarian/inventory');
         return JSON.parse(JSON.stringify(updated));
     } catch (error: any) {
@@ -47,7 +68,19 @@ export async function updateLocation(id: string, data: any) {
 export async function deleteLocation(id: string) {
     try {
         await dbConnect();
-        // Optionnel: vérifier si des Items utilisent cette location avant de supprimer
+        const locationToDelete = await Location.findById(id);
+
+        if (locationToDelete) {
+            // 🔔 Notification de suppression
+            await createNotification({
+                recipientRole: "admin",
+                title: "🗑️ Emplacement supprimé",
+                message: `L'emplacement "${locationToDelete.name}" a été retiré du système.`,
+                type: "inventory",
+                priority: "medium"
+            });
+        }
+
         await Location.findByIdAndDelete(id);
         revalidatePath('/dashboard/librarian/inventory');
         return { success: true };

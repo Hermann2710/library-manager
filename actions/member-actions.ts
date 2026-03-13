@@ -5,6 +5,7 @@ import { Member } from '@/lib/models/Member';
 import User from '@/lib/models/User'; 
 import dbConnect from '@/lib/mongodb';
 import { memberSchema } from '@/lib/validation/member';
+import { createNotification } from '@/actions/notification-actions';
 
 /**
  * Récupère la liste de tous les membres avec les infos User liées
@@ -39,17 +40,25 @@ export async function createMember(data: any) {
         await dbConnect();
         const validatedData = memberSchema.parse(data);
 
-        // Vérifier si l'utilisateur a déjà une fiche membre
         const existingMember = await Member.findOne({ user: validatedData.user });
         if (existingMember) throw new Error("Cet utilisateur est déjà membre");
 
-        // Génération du Member ID (ex: MEM-2026-0001)
         const count = await Member.countDocuments();
         const memberId = `MEM-${new Date().getFullYear()}-${(count + 1).toString().padStart(4, '0')}`;
 
         const newMember = await Member.create({
             ...validatedData,
             memberId
+        });
+
+        // 🔔 Notification pour le nouvel utilisateur
+        await createNotification({
+            recipient: validatedData.user,
+            title: "🎟️ Carte de membre activée",
+            message: `Votre fiche membre (${memberId}) a été créée par l'administration.`,
+            type: "system",
+            priority: "medium",
+            link: "/dashboard/profile"
         });
 
         revalidatePath('/dashboard/librarian/members');
@@ -67,11 +76,24 @@ export async function updateMember(id: string, data: any) {
         await dbConnect();
         const validatedData = memberSchema.parse(data);
 
+        const oldMember = await Member.findById(id);
         const updatedMember = await Member.findByIdAndUpdate(
             id, 
             { ...validatedData }, 
             { new: true }
         );
+
+        // 🔔 Notification si le STATUT a changé (ex: Banned ou Inactive)
+        if (oldMember.status !== updatedMember.status) {
+            await createNotification({
+                recipient: updatedMember.user.toString(),
+                title: "⚠️ Statut de votre compte mis à jour",
+                message: `Le statut de votre adhésion est désormais : ${updatedMember.status}.`,
+                type: "system",
+                priority: updatedMember.status === "Banned" ? "high" : "medium",
+                link: "/dashboard/profile"
+            });
+        }
 
         revalidatePath('/dashboard/librarian/members');
         return JSON.parse(JSON.stringify(updatedMember));
@@ -86,7 +108,19 @@ export async function updateMember(id: string, data: any) {
 export async function deleteMember(id: string) {
     try {
         await dbConnect();
-        // TODO: Vérifier s'il n'a pas d'emprunts en cours avant de supprimer
+        const memberToDelete = await Member.findById(id).populate('user', 'name');
+        
+        if (memberToDelete) {
+            // 🔔 Alerte Admin car c'est une action radicale
+            await createNotification({
+                recipientRole: "admin",
+                title: "🚨 Fiche membre supprimée",
+                message: `La fiche de ${(memberToDelete.user as any).name} (${memberToDelete.memberId}) a été supprimée.`,
+                type: "system",
+                priority: "high"
+            });
+        }
+
         await Member.findByIdAndDelete(id);
         revalidatePath('/dashboard/librarian/members');
         return { success: true };
@@ -97,14 +131,11 @@ export async function deleteMember(id: string) {
 
 /**
  * Récupère les utilisateurs qui n'ont pas encore de fiche membre
- * Utile pour le Select du formulaire de création
  */
 export async function getAvailableUsers() {
     await dbConnect();
     const members = await Member.find().select('user');
     const memberUserIds = members.map(m => m.user);
-    
-    // On cherche les users qui ne sont pas dans la liste des membres
     const users = await User.find({ _id: { $nin: memberUserIds } }).select('name email');
     return JSON.parse(JSON.stringify(users));
 }

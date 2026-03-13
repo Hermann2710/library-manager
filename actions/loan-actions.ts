@@ -4,9 +4,10 @@ import { revalidatePath } from 'next/cache';
 import { Loan } from '@/lib/models/Loan';
 import { Item } from '@/lib/models/Item';
 import { Member } from '@/lib/models/Member';
+import { Work } from '@/lib/models/Work';
 import dbConnect from '@/lib/mongodb';
 import { auth } from '@/auth';
-import { loanSchema } from '@/lib/validation/loan';
+import { createNotification } from '@/actions/notification-actions';
 
 /**
  * RÉCUPÉRER TOUS LES EMPRUNTS
@@ -33,12 +34,11 @@ export async function reserveItem(itemId: string) {
         const session = await auth();
         if (!session) throw new Error("Vous devez être connecté");
 
-        const member = await Member.findOne({ user: session.user.id });
+        const member = await Member.findOne({ user: session.user.id }).populate('user', 'name');
         if (!member) throw new Error("Profil membre introuvable");
 
         if (member.status !== "Active") throw new Error("Votre compte n'est pas actif");
         
-        // Vérification de la date d'expiration
         if (member.membershipExpiresAt && new Date(member.membershipExpiresAt) < new Date()) {
             throw new Error("Votre adhésion a expiré");
         }
@@ -50,22 +50,30 @@ export async function reserveItem(itemId: string) {
         
         if (activeCount >= 3) throw new Error("Limite de 3 livres atteinte");
 
-        const item = await Item.findById(itemId);
+        const item = await Item.findById(itemId).populate('work', 'title');
         if (!item || item.status !== "Available") throw new Error("Exemplaire non disponible");
 
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + 14);
 
-        // Création sans le champ librarian
-        await Loan.create({
+        const newLoan = await Loan.create({
             item: itemId,
             member: member._id,
-            status: "Pending", // Maintenant accepté par l'enum
+            status: "Pending",
             dueDate
         });
 
-        // On marque l'exemplaire comme réservé
         await Item.findByIdAndUpdate(itemId, { status: "Reserved" });
+
+        // 🔔 Notification pour les Bibliothécaires
+        await createNotification({
+            recipientRole: "librarian",
+            title: "⏳ Nouvelle réservation",
+            message: `${(member.user as any).name} a réservé "${(item.work as any).title}".`,
+            type: "loan",
+            priority: "medium",
+            link: "/dashboard/librarian/loans"
+        });
 
         revalidatePath('/dashboard/search');
         return { success: true };
@@ -80,24 +88,27 @@ export async function cancelReservation(loanId: string) {
         const session = await auth();
         if (!session) throw new Error("Non autorisé");
 
-        const loan = await Loan.findById(loanId);
+        const loan = await Loan.findById(loanId).populate({ path: 'item', populate: { path: 'work', select: 'title' }});
         if (!loan) throw new Error("Réservation introuvable");
 
-        // Sécurité : Vérifier que c'est bien le membre qui annule sa propre réservation
-        const member = await Member.findOne({ user: session.user.id });
+        const member = await Member.findOne({ user: session.user.id }).populate('user', 'name');
         if (!member || loan.member.toString() !== member._id.toString()) {
             throw new Error("Action non autorisée");
         }
 
-        if (loan.status !== "Pending") {
-            throw new Error("Seules les réservations en attente peuvent être annulées");
-        }
+        if (loan.status !== "Pending") throw new Error("Seules les réservations en attente peuvent être annulées");
 
-        // 1. Remettre l'exemplaire en disponible
         await Item.findByIdAndUpdate(loan.item, { status: "Available" });
-
-        // 2. Supprimer la ligne de prêt (ou la marquer comme annulée si tu préfères garder une trace)
         await Loan.findByIdAndDelete(loanId);
+
+        // 🔔 Notification pour les Bibliothécaires (Info d'annulation)
+        await createNotification({
+            recipientRole: "librarian",
+            title: "🚫 Réservation annulée",
+            message: `${(member.user as any).name} a annulé sa réservation pour "${(loan.item as any).work.title}".`,
+            type: "loan",
+            priority: "low"
+        });
 
         revalidatePath('/dashboard/my-loans');
         return { success: true };
@@ -115,7 +126,10 @@ export async function validateLoan(loanId: string) {
         const session = await auth();
         if (!session || session.user.role === "reader") throw new Error("Action non autorisée");
 
-        const loan = await Loan.findById(loanId);
+        const loan = await Loan.findById(loanId)
+            .populate({ path: 'item', populate: { path: 'work', select: 'title' }})
+            .populate('member');
+            
         if (!loan) throw new Error("Emprunt introuvable");
 
         loan.status = "Active";
@@ -123,7 +137,17 @@ export async function validateLoan(loanId: string) {
         loan.librarian = session.user.id;
         await loan.save();
 
-        await Item.findByIdAndUpdate(loan.item, { status: "Borrowed" });
+        await Item.findByIdAndUpdate(loan.item._id, { status: "Borrowed" });
+
+        // 🔔 Notification pour le Lecteur
+        await createNotification({
+            recipient: (loan.member as any).user.toString(),
+            title: "📖 Emprunt validé !",
+            message: `Votre emprunt pour "${(loan.item as any).work.title}" est actif. À rendre avant le ${new Date(loan.dueDate).toLocaleDateString()}.`,
+            type: "loan",
+            priority: "high",
+            link: "/dashboard/my-loans"
+        });
 
         revalidatePath('/dashboard/librarian/loans');
         return { success: true };
@@ -138,9 +162,21 @@ export async function validateLoan(loanId: string) {
 export async function returnItem(loanId: string) {
     try {
         await dbConnect();
-        const loan = await Loan.findById(loanId);
+        const loan = await Loan.findById(loanId)
+            .populate({ path: 'item', populate: { path: 'work', select: 'title' }})
+            .populate('member');
+
         await Loan.findByIdAndUpdate(loanId, { status: "Returned", returnDate: new Date() });
-        await Item.findByIdAndUpdate(loan.item, { status: "Available" });
+        await Item.findByIdAndUpdate(loan.item._id, { status: "Available" });
+
+        // 🔔 Notification pour le Lecteur (Confirmation de retour)
+        await createNotification({
+            recipient: (loan.member as any).user.toString(),
+            title: "✅ Livre retourné",
+            message: `Le retour de "${(loan.item as any).work.title}" a bien été enregistré. Merci !`,
+            type: "loan",
+            priority: "low"
+        });
 
         revalidatePath('/dashboard/librarian/loans');
         return { success: true };

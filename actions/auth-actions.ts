@@ -3,9 +3,11 @@
 import bcrypt from "bcryptjs";
 import dbConnect from "@/lib/mongodb";
 import User from "@/lib/models/User";
-import { Member } from "@/lib/models/Member"; // Import du modèle Member
+import { Member } from "@/lib/models/Member";
 import { registerSchema } from "@/lib/validation/auth";
 import { z } from "zod";
+// Import de l'action de notification
+import { createNotification } from "@/actions/notification-actions";
 
 export async function registerAction(values: z.infer<typeof registerSchema>) {
   const validatedFields = registerSchema.safeParse(values);
@@ -31,20 +33,40 @@ export async function registerAction(values: z.infer<typeof registerSchema>) {
     });
 
     // 2. Création automatique de la fiche membre
-    // On génère un ID membre (ex: MEM-2026-XXXX)
     const memberCount = await Member.countDocuments();
     const memberId = `MEM-${new Date().getFullYear()}-${(memberCount + 1).toString().padStart(4, '0')}`;
     
-    // Expiration par défaut : Aujourd'hui + 1 an
     const expirationDate = new Date();
     expirationDate.setFullYear(expirationDate.getFullYear() + 1);
 
-    await Member.create({
+    const newMember = await Member.create({
       user: newUser._id,
       memberId,
-      phone: "Non renseigné", // On pourra le modifier plus tard dans le profil
+      phone: "Non renseigné",
       status: "Active",
       membershipExpiresAt: expirationDate,
+    });
+
+    // --- SYSTÈME DE NOTIFICATIONS ---
+
+    // A. Notification de Bienvenue pour le Lecteur
+    await createNotification({
+      recipient: newUser._id.toString(),
+      title: "👋 Bienvenue à la Bibliothèque !",
+      message: `Votre compte a été créé avec succès. Votre ID membre est ${memberId}. N'oubliez pas de compléter votre profil.`,
+      type: "system",
+      priority: "medium",
+      link: "/dashboard/profile"
+    });
+
+    // B. Notification pour les Bibliothécaires/Admins
+    await createNotification({
+      recipientRole: "librarian",
+      title: "👤 Nouveau membre inscrit",
+      message: `${name} vient de rejoindre la bibliothèque (ID: ${memberId}).`,
+      type: "system",
+      priority: "low",
+      link: `/dashboard/librarian/members/${newMember._id}`
     });
 
     return { success: "Compte créé et adhésion activée ! Vous pouvez vous connecter." };
