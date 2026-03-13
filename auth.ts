@@ -35,7 +35,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               id: user._id.toString(),
               name: user.name,
               email: user.email,
-              role: user.role, // This value comes from MongoDB
+              role: user.role,
+              image: user.image, // Ajout de l'image ici pour la session initiale
             };
           }
         }
@@ -44,23 +45,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
     }),
   ],
-session: { strategy: "jwt" },
+  session: { strategy: "jwt" },
   callbacks: {
     async signIn({ user, account }) {
-      // Si c'est une connexion OAuth (Google, GitHub)
       if (account?.provider !== "credentials") {
         try {
           await dbConnect();
-
-          // On vérifie si une fiche membre existe déjà pour cet ID utilisateur
           const existingMember = await Member.findOne({ user: user.id });
 
           if (!existingMember) {
-            // Génération du Member ID (ex: MEM-2026-XXXX)
             const memberCount = await Member.countDocuments();
             const memberId = `MEM-${new Date().getFullYear()}-${(memberCount + 1).toString().padStart(4, '0')}`;
             
-            // Expiration par défaut : Aujourd'hui + 1 an
             const expirationDate = new Date();
             expirationDate.setFullYear(expirationDate.getFullYear() + 1);
 
@@ -71,27 +67,43 @@ session: { strategy: "jwt" },
               status: "Active",
               membershipExpiresAt: expirationDate,
             });
-            console.log(`Fiche membre créée pour l'utilisateur OAuth: ${user.email}`);
           }
         } catch (error) {
-          console.error("Erreur lors de la création auto du membre (OAuth):", error);
-          // On laisse quand même l'utilisateur se connecter, même si la fiche membre échoue
+          console.error("Erreur OAuth Member Init:", error);
           return true; 
         }
       }
       return true;
     },
-    async jwt({ token, user }) {
+
+    // MODIFICATION ICI : Gestion de l'update
+    async jwt({ token, user, trigger, session }) {
+      // Lors de la connexion initiale
       if (user) {
-        token.role = (user as any).role || "reader"; // Sécurité si le rôle est absent
+        token.role = (user as any).role || "reader";
         token.id = user.id;
+        token.picture = (user as any).image;
       }
+
+      // Lors de l'appel à update() depuis le client
+      if (trigger === "update" && session) {
+        // On met à jour le token avec les nouvelles valeurs envoyées
+        token.name = session.name;
+        token.email = session.email;
+        token.picture = session.image;
+        // Si tu as besoin de mettre à jour le rôle via update(), ajoute-le ici
+      }
+
       return token;
     },
+
     async session({ session, token }) {
-      if (token?.role) {
+      if (token) {
         session.user.role = token.role as "reader" | "librarian" | "admin";
         session.user.id = token.id as string;
+        session.user.name = token.name;
+        session.user.email = token.email as string;
+        session.user.image = token.picture as string; // Synchronisation de l'image
       }
       return session;
     },

@@ -9,9 +9,10 @@ interface ImageUploadProps {
     value?: string;
     onChange: (url: string) => void;
     onRemove: () => void;
+    className?: string;
 }
 
-export function ImageUpload({ value, onChange, onRemove }: ImageUploadProps) {
+export function ImageUpload({ value, onChange, onRemove, className }: ImageUploadProps) {
     const [loading, setLoading] = useState(false);
     const [isDrag, setIsDrag] = useState(false);
 
@@ -29,7 +30,8 @@ export function ImageUpload({ value, onChange, onRemove }: ImageUploadProps) {
     return (
         <div className={cn(
             "relative aspect-3/4 rounded-lg border-2 border-dashed flex flex-col items-center justify-center transition bg-muted/50",
-            isDrag ? "border-primary bg-primary/5" : "border-muted-foreground/25"
+            isDrag ? "border-primary bg-primary/5" : "border-muted-foreground/25",
+            className
         )}
             onDragOver={(e) => { e.preventDefault(); setIsDrag(true); }}
             onDragLeave={() => setIsDrag(false)}

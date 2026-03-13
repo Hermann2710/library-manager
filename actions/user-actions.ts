@@ -86,3 +86,36 @@ export async function deleteUserAccount(userId: string) {
         throw new Error("Erreur lors de la suppression");
     }
 }
+
+export async function updateProfile(values: { name: string; email: string; image?: string }) {
+    try {
+        await dbConnect();
+        const session = await auth();
+        
+        if (!session?.user?.id) throw new Error("Vous devez être connecté");
+
+        const updatedUser = await User.findByIdAndUpdate(
+            session.user.id, 
+            { 
+                name: values.name, 
+                email: values.email, 
+                image: values.image 
+            }, 
+            { new: true }
+        );
+
+        // Optionnel : Notifier l'utilisateur du succès de la modification
+        await createNotification({
+            recipient: session.user.id,
+            title: "👤 Profil mis à jour",
+            message: "Vos informations personnelles ont été modifiées avec succès.",
+            type: "system",
+            priority: "low"
+        });
+
+        revalidatePath('/dashboard/profile');
+        return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
+    } catch (error: any) {
+        throw new Error(error.message || "Erreur lors de la mise à jour du profil");
+    }
+}
