@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { Work } from '@/lib/models/Work';
-// On importe les autres modèles pour que le .populate() fonctionne
+// Important: We import these models to ensure Mongoose can resolve 
+// the references during the .populate() calls.
 import '@/lib/models/Author';
 import '@/lib/models/Publisher';
 import '@/lib/models/Taxonomy'; 
@@ -11,7 +12,8 @@ import dbConnect from '@/lib/mongodb';
 import { createNotification } from '@/actions/notification-actions';
 
 /**
- * Récupère toutes les œuvres avec leurs relations développées
+ * Retrieves the entire library catalog with all relational data expanded.
+ * It transforms IDs into readable names for the UI (Publisher, Category, Authors, etc.).
  */
 export async function getWorks() {
     try {
@@ -23,6 +25,7 @@ export async function getWorks() {
             .populate('genres', 'name')
             .sort({ createdAt: -1 });
             
+        // Standardizing the output for Next.js Client Components
         return JSON.parse(JSON.stringify(works));
     } catch (error) {
         console.error("Erreur getWorks:", error);
@@ -31,7 +34,8 @@ export async function getWorks() {
 }
 
 /**
- * Récupère une œuvre spécifique par son ID
+ * Fetches the full details of a single book by its ID.
+ * Perfect for the book details page or the catalog management forms.
  */
 export async function getWorkById(id: string) {
     await dbConnect();
@@ -44,17 +48,21 @@ export async function getWorkById(id: string) {
 }
 
 /**
- * Création d'une œuvre
+ * Creates a new literary work record.
+ * Handles language string sanitization, ISBN uniqueness checks, 
+ * and broadcasts the news to all readers.
  */
 export async function createWork(data: any) {
     try {
         await dbConnect();
         
+        // Data cleaning: Ensure the language string is trimmed and valid
         const { language, ...rest } = data;
         const cleanData = { ...rest, language: String(language).trim() };
 
         const validatedData = workSchema.parse(cleanData);
         
+        // ISBN Check: Prevents duplicate catalog entries
         if (validatedData.isbn) {
             const existing = await Work.findOne({ isbn: validatedData.isbn });
             if (existing) throw new Error("ISBN déjà utilisé");
@@ -62,17 +70,18 @@ export async function createWork(data: any) {
 
         const newWork = await Work.create(validatedData);
 
-        // 🔔 Notification pour TOUS les Lecteurs (Nouveauté catalogue)
+        // 🔔 Broadcaster: Notify ALL Readers about the new addition!
+        // This boosts user engagement by highlighting new content.
         await createNotification({
             recipientRole: "reader",
             title: "📚 Nouveau livre disponible !",
             message: `"${newWork.title}" vient d'être ajouté au catalogue. Venez le découvrir !`,
             type: "inventory",
             priority: "low",
-            link: `/dashboard/search` // Redirige vers la recherche/catalogue
+            link: `/dashboard/search` 
         });
 
-        // 🔔 Notification pour les Admins (Audit)
+        // 🔔 Admin Audit: Log the creation for the staff team
         await createNotification({
             recipientRole: "admin",
             title: "🆕 Œuvre créée",
@@ -90,7 +99,8 @@ export async function createWork(data: any) {
 }
 
 /**
- * Mise à jour d'une œuvre
+ * Updates an existing work's metadata.
+ * Triggers revalidation to ensure the catalog reflects the latest changes.
  */
 export async function updateWork(id: string, data: any) {
     try {
@@ -105,7 +115,7 @@ export async function updateWork(id: string, data: any) {
         
         if (!updatedWork) throw new Error("Œuvre non trouvée");
 
-        // 🔔 Notification pour les Admins
+        // Simple update log for administrators
         await createNotification({
             recipientRole: "admin",
             title: "🔄 Fiche œuvre modifiée",
@@ -122,7 +132,7 @@ export async function updateWork(id: string, data: any) {
 }
 
 /**
- * Suppression d'une œuvre
+ * Permanently deletes a work and its metadata from the system.
  */
 export async function deleteWork(id: string) {
     try {
@@ -130,7 +140,7 @@ export async function deleteWork(id: string) {
         const workToDelete = await Work.findById(id);
 
         if (workToDelete) {
-            // 🔔 Notification pour les Admins (Action importante)
+            // Medium priority alert since deleting a 'Work' is a major catalog change
             await createNotification({
                 recipientRole: "admin",
                 title: "🗑️ Œuvre supprimée",

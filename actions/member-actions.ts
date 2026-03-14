@@ -8,7 +8,9 @@ import { memberSchema } from '@/lib/validation/member';
 import { createNotification } from '@/actions/notification-actions';
 
 /**
- * Récupère la liste de tous les membres avec les infos User liées
+ * Retrieves the complete list of library members.
+ * We populate the 'user' data to display names, emails, and profile pictures 
+ * alongside their specific membership details.
  */
 export async function getMembers() {
     try {
@@ -16,6 +18,8 @@ export async function getMembers() {
         const members = await Member.find()
             .populate({ path: 'user', select: 'name email image' })
             .sort({ createdAt: -1 });
+            
+        // Clean output for Next.js Client Components
         return JSON.parse(JSON.stringify(members));
     } catch (error) {
         console.error("Erreur getMembers:", error);
@@ -24,7 +28,8 @@ export async function getMembers() {
 }
 
 /**
- * Récupère un membre spécifique par son ID ou l'ID de l'utilisateur
+ * Fetches a single member's profile by their unique MongoDB ID.
+ * Useful for the detailed member view or edit forms.
  */
 export async function getMemberById(id: string) {
     await dbConnect();
@@ -33,13 +38,15 @@ export async function getMemberById(id: string) {
 }
 
 /**
- * Crée une fiche membre pour un utilisateur existant
+ * Manually creates a membership record for an existing authenticated user.
+ * Generates a structured Member ID (e.g., MEM-2026-0001) for library tracking.
  */
 export async function createMember(data: any) {
     try {
         await dbConnect();
         const validatedData = memberSchema.parse(data);
 
+        // One identity = one membership. We prevent duplicate member files for the same user.
         const existingMember = await Member.findOne({ user: validatedData.user });
         if (existingMember) throw new Error("Cet utilisateur est déjà membre");
 
@@ -51,7 +58,7 @@ export async function createMember(data: any) {
             memberId
         });
 
-        // 🔔 Notification pour le nouvel utilisateur
+        // Notify the user that their membership card is now active and ready to use
         await createNotification({
             recipient: validatedData.user,
             title: "🎟️ Carte de membre activée",
@@ -69,7 +76,8 @@ export async function createMember(data: any) {
 }
 
 /**
- * Met à jour les infos d'un membre (statut, téléphone, expiration)
+ * Updates membership details such as status, phone number, or expiration date.
+ * Includes logic to notify the user if their status changes (e.g., if they are banned).
  */
 export async function updateMember(id: string, data: any) {
     try {
@@ -83,7 +91,7 @@ export async function updateMember(id: string, data: any) {
             { new: true }
         );
 
-        // 🔔 Notification si le STATUT a changé (ex: Banned ou Inactive)
+        // Crucial feedback: Alert the user if their access status changes
         if (oldMember.status !== updatedMember.status) {
             await createNotification({
                 recipient: updatedMember.user.toString(),
@@ -103,7 +111,8 @@ export async function updateMember(id: string, data: any) {
 }
 
 /**
- * Supprime une fiche membre
+ * Removes a member record from the system.
+ * High-priority notification for admins since this affects access rights.
  */
 export async function deleteMember(id: string) {
     try {
@@ -111,7 +120,6 @@ export async function deleteMember(id: string) {
         const memberToDelete = await Member.findById(id).populate('user', 'name');
         
         if (memberToDelete) {
-            // 🔔 Alerte Admin car c'est une action radicale
             await createNotification({
                 recipientRole: "admin",
                 title: "🚨 Fiche membre supprimée",
@@ -130,12 +138,16 @@ export async function deleteMember(id: string) {
 }
 
 /**
- * Récupère les utilisateurs qui n'ont pas encore de fiche membre
+ * Identifies users who have an account but no library membership yet.
+ * Perfect for the "Add Member" dropdown to avoid redundant entries.
  */
 export async function getAvailableUsers() {
     await dbConnect();
+    // Get IDs of everyone who is already a member
     const members = await Member.find().select('user');
     const memberUserIds = members.map(m => m.user);
+    
+    // Find users NOT in that list
     const users = await User.find({ _id: { $nin: memberUserIds } }).select('name email');
     return JSON.parse(JSON.stringify(users));
 }

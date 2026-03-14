@@ -6,10 +6,14 @@ import User from "@/lib/models/User";
 import { Member } from "@/lib/models/Member";
 import { registerSchema } from "@/lib/validation/auth";
 import { z } from "zod";
-// Import de l'action de notification
 import { createNotification } from "@/actions/notification-actions";
 
+/**
+ * Handles the registration flow for new users.
+ * This includes identity creation, member card generation, and initial notifications.
+ */
 export async function registerAction(values: z.infer<typeof registerSchema>) {
+  // Validate incoming data against our Zod schema before hitting the DB
   const validatedFields = registerSchema.safeParse(values);
 
   if (!validatedFields.success) return { error: "Données invalides" };
@@ -18,13 +22,16 @@ export async function registerAction(values: z.infer<typeof registerSchema>) {
 
   try {
     await dbConnect();
+    
+    // Check if the user is trying to register an existing email
     const userExists = await User.findOne({ email });
-
     if (userExists) return { error: "Cet email est déjà utilisé." };
 
+    // Standard security: Hash the password with a salt round of 10
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 1. Création de l'utilisateur
+    // 1. Core User Creation (Identity)
+    // New users are assigned the 'reader' role by default for safety
     const newUser = await User.create({
       name,
       email,
@@ -32,10 +39,12 @@ export async function registerAction(values: z.infer<typeof registerSchema>) {
       role: "reader",
     });
 
-    // 2. Création automatique de la fiche membre
+    // 2. Automatic Library Membership Initialization
+    // We generate a unique ID based on the current year and the total member count
     const memberCount = await Member.countDocuments();
     const memberId = `MEM-${new Date().getFullYear()}-${(memberCount + 1).toString().padStart(4, '0')}`;
     
+    // Set an initial membership lifespan of exactly one year
     const expirationDate = new Date();
     expirationDate.setFullYear(expirationDate.getFullYear() + 1);
 
@@ -47,9 +56,10 @@ export async function registerAction(values: z.infer<typeof registerSchema>) {
       membershipExpiresAt: expirationDate,
     });
 
-    // --- SYSTÈME DE NOTIFICATIONS ---
+    // --- NOTIFICATION SYSTEM DISPATCH ---
 
-    // A. Notification de Bienvenue pour le Lecteur
+    // A. Welcome Notification (Target: The new Reader)
+    // Helps the user feel oriented and provides their new Member ID immediately
     await createNotification({
       recipient: newUser._id.toString(),
       title: "👋 Bienvenue à la Bibliothèque !",
@@ -59,7 +69,8 @@ export async function registerAction(values: z.infer<typeof registerSchema>) {
       link: "/dashboard/profile"
     });
 
-    // B. Notification pour les Bibliothécaires/Admins
+    // B. Internal Alert (Target: Staff/Admins)
+    // Keeps the team informed about new arrivals in real-time
     await createNotification({
       recipientRole: "librarian",
       title: "👤 Nouveau membre inscrit",
@@ -71,6 +82,7 @@ export async function registerAction(values: z.infer<typeof registerSchema>) {
 
     return { success: "Compte créé et adhésion activée ! Vous pouvez vous connecter." };
   } catch (error) {
+    // Log the error for server-side debugging but keep client feedback generic
     console.error("Register Error:", error);
     return { error: "Erreur lors de l'inscription." };
   }

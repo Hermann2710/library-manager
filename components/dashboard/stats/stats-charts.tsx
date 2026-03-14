@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,13 @@ import { FileSpreadsheet, FileText, TrendingUp } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Papa from "papaparse";
+import { useTheme } from "next-themes";
 
+/**
+ * StatsCharts Component.
+ * An interactive data visualization hub. It supports dynamic switching between 
+ * different data sources (Books, Authors, etc.) and provides export capabilities.
+ */
 export function StatsCharts({
     topBooks = [],
     topAuthors = [],
@@ -18,8 +24,9 @@ export function StatsCharts({
     topPublishers = []
 }: any) {
     const [view, setView] = useState("books");
+    const { theme } = useTheme();
 
-    // Sélection dynamique de la source de données
+    // Mapping view keys to their respective data sources and display labels
     const getActiveData = () => {
         switch (view) {
             case "authors": return topAuthors;
@@ -33,6 +40,16 @@ export function StatsCharts({
     const activeData = getActiveData();
     const dataKey = view === "books" ? "title" : "name";
 
+    // Theme-aware colors for Recharts to ensure text is visible in both modes
+    const chartColors = useMemo(() => ({
+        text: theme === "dark" ? "#a1a1aa" : "#4b5563", // zinc-400 or gray-600
+        tooltipBg: theme === "dark" ? "#18181b" : "#ffffff",
+        tooltipBorder: theme === "dark" ? "#27272a" : "#e4e4e7"
+    }), [theme]);
+
+    /**
+     * Handles the CSV export for the entire analytics dataset.
+     */
     const exportCSV = () => {
         const data = [
             ...topBooks.map((b: any) => ({ Section: "Livre", Nom: b.title, Valeur: b.count })),
@@ -49,6 +66,9 @@ export function StatsCharts({
         link.click();
     };
 
+    /**
+     * Generates a clean PDF report with tables for each analytical section.
+     */
     const exportPDF = () => {
         const doc = new jsPDF();
         doc.setFontSize(18);
@@ -71,7 +91,7 @@ export function StatsCharts({
                 startY: y + 7,
                 head: [s.head],
                 body: s.data,
-                headStyles: { fillStyle: '#111' } as any
+                headStyles: { fillColor: [17, 17, 17] }
             });
             y = (doc as any).lastAutoTable.finalY + 10;
         });
@@ -79,56 +99,67 @@ export function StatsCharts({
     };
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 animate-in fade-in duration-700">
+            {/* Control Bar: Tab selection and Export actions */}
             <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <Tabs defaultValue="books" onValueChange={setView} className="w-full sm:w-auto">
-                    <TabsList className="bg-muted/50 border border-muted-foreground/10 h-10 p-1">
-                        <TabsTrigger value="books" className="text-[10px] font-bold uppercase tracking-widest px-4">Livres</TabsTrigger>
-                        <TabsTrigger value="authors" className="text-[10px] font-bold uppercase tracking-widest px-4">Auteurs</TabsTrigger>
-                        <TabsTrigger value="categories" className="text-[10px] font-bold uppercase tracking-widest px-4">Catégories</TabsTrigger>
-                        <TabsTrigger value="genres" className="text-[10px] font-bold uppercase tracking-widest px-4">Genres</TabsTrigger>
-                        <TabsTrigger value="publishers" className="text-[10px] font-bold uppercase tracking-widest px-4">Éditeurs</TabsTrigger>
+                    <TabsList className="bg-muted/50 border border-muted-foreground/10 h-10 p-1 rounded-xl">
+                        <TabsTrigger value="books" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Livres</TabsTrigger>
+                        <TabsTrigger value="authors" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Auteurs</TabsTrigger>
+                        <TabsTrigger value="categories" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Catégories</TabsTrigger>
+                        <TabsTrigger value="genres" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Genres</TabsTrigger>
+                        <TabsTrigger value="publishers" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Éditeurs</TabsTrigger>
                     </TabsList>
                 </Tabs>
 
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 text-[9px] font-black uppercase tracking-widest">
-                        <FileSpreadsheet className="mr-2 h-3.5 w-3.5 text-emerald-600" /> CSV
+                    <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors">
+                        <FileSpreadsheet className="mr-2 h-3.5 w-3.5" /> CSV
                     </Button>
-                    <Button variant="outline" size="sm" onClick={exportPDF} className="h-9 text-[9px] font-black uppercase tracking-widest">
-                        <FileText className="mr-2 h-3.5 w-3.5 text-red-600" /> PDF
+                    <Button variant="outline" size="sm" onClick={exportPDF} className="h-9 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-colors">
+                        <FileText className="mr-2 h-3.5 w-3.5" /> PDF
                     </Button>
                 </div>
             </div>
 
-            <Card className="border-none shadow-none bg-muted/5">
-                <CardHeader className="flex flex-row items-center gap-2">
+            {/* Chart Display: Highlighting data trends with theme-aware visuals */}
+            <Card className="border-none shadow-none bg-muted/20 backdrop-blur-sm rounded-3xl overflow-hidden">
+                <CardHeader className="flex flex-row items-center gap-2 border-b border-border/40 bg-muted/10">
                     <TrendingUp className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-sm font-black uppercase italic">
+                    <CardTitle className="text-xs font-black uppercase italic tracking-widest">
                         Analyse par {view}
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="h-80 w-full pt-4">
+                <CardContent className="h-80 w-full pt-8">
                     <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={activeData} layout="vertical" margin={{ left: 20, right: 30 }}>
+                        <BarChart data={activeData} layout="vertical" margin={{ left: 10, right: 30 }}>
                             <XAxis type="number" hide />
                             <YAxis
                                 dataKey={dataKey}
                                 type="category"
-                                width={140}
-                                tick={{ fontSize: 9, fontWeight: 800, fill: 'hsl(var(--foreground))' }}
+                                width={120}
+                                tick={{ fontSize: 9, fontWeight: 900, fill: chartColors.text, textAnchor: 'end' }}
                                 axisLine={false}
                                 tickLine={false}
                             />
                             <Tooltip
-                                cursor={{ fill: 'transparent' }}
-                                contentStyle={{ borderRadius: '12px', border: 'none', fontWeight: 'bold', fontSize: '11px' }}
+                                cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
+                                contentStyle={{
+                                    backgroundColor: chartColors.tooltipBg,
+                                    borderColor: chartColors.tooltipBorder,
+                                    borderRadius: '12px',
+                                    border: '1px solid',
+                                    fontWeight: 'bold',
+                                    fontSize: '11px',
+                                    color: 'hsl(var(--foreground))'
+                                }}
                             />
-                            <Bar dataKey="count" radius={[0, 4, 4, 0]} barSize={20}>
+                            <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={16}>
                                 {activeData.map((_: any, index: number) => (
                                     <Cell
                                         key={`cell-${index}`}
-                                        fill={index === 0 ? 'hsl(var(--primary))' : 'hsl(var(--primary)/0.25)'}
+                                        fill={index === 0 ? 'hsl(var(--primary))' : 'hsl(var(--primary)/0.3)'}
+                                        className="transition-all duration-500"
                                     />
                                 ))}
                             </Bar>

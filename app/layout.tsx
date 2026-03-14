@@ -8,8 +8,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner";
 import QueryProvider from "@/components/providers/query-provider";
 
+// Load the Inter font with a CSS variable for Tailwind integration
 const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
+/**
+ * Global SEO and document metadata.
+ */
 export const metadata: Metadata = {
   title: "Library Manager",
   description: "The best library manager web app using Next.js, MongoDB & TanStack",
@@ -22,19 +26,35 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="fr" className={cn("font-sans", inter.variable)} suppressHydrationWarning>
-      <body
-        className={`antialiased`}
-      >
+      <body className="antialiased">
+        {/* ThemeProvider: Handles dark/light mode switching 
+        */}
         <ThemeProvider
           attribute="class"
           enableSystem
           defaultTheme="system">
+
+          {/* QueryProvider: Enables TanStack Query for efficient data fetching and caching 
+          */}
           <QueryProvider>
+
+            {/* SessionProvider: Exposes the Next-Auth session context to the entire app 
+            */}
             <SessionProvider>
+
+              {/* TooltipProvider: Radix UI wrapper for accessible tooltips 
+              */}
               <TooltipProvider>
                 {children}
-                <Toaster />
+
+                {/* Toaster: Global notification system (Sonner) 
+                */}
+                <Toaster toastOptions={{
+                  closeButton: true,
+                  duration: 3000
+                }} />
               </TooltipProvider>
+
             </SessionProvider>
           </QueryProvider>
         </ThemeProvider>

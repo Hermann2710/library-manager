@@ -6,6 +6,10 @@ import dbConnect from '@/lib/mongodb';
 import { locationSchema } from '@/lib/validation/location';
 import { createNotification } from '@/actions/notification-actions';
 
+/**
+ * Retrieves all library locations (shelves, rooms, sections).
+ * Sorted alphabetically by name to make selection easier in forms.
+ */
 export async function getLocations() {
     try {
         await dbConnect();
@@ -16,17 +20,23 @@ export async function getLocations() {
     }
 }
 
+/**
+ * Creates a new physical storage zone or shelf in the system.
+ * Prevents duplicates to maintain a clean and reliable inventory map.
+ */
 export async function createLocation(data: any) {
     try {
         await dbConnect();
+        // Validate input data (name, description, etc.) via Zod
         const validatedData = locationSchema.parse(data);
         
+        // Ensure we don't have two locations with the exact same name
         const existing = await Location.findOne({ name: validatedData.name });
         if (existing) throw new Error("Cet emplacement existe déjà");
 
         const newLocation = await Location.create(validatedData);
 
-        // 🔔 Notification pour les Admins
+        // Notify admins so they are aware of changes in the library layout
         await createNotification({
             recipientRole: "admin",
             title: "📍 Nouvel emplacement",
@@ -35,6 +45,7 @@ export async function createLocation(data: any) {
             priority: "low"
         });
 
+        // Trigger a refresh on the inventory dashboard to show the new location
         revalidatePath('/dashboard/librarian/inventory'); 
         return JSON.parse(JSON.stringify(newLocation));
     } catch (error: any) {
@@ -42,6 +53,10 @@ export async function createLocation(data: any) {
     }
 }
 
+/**
+ * Updates a location's details.
+ * Useful for renaming shelves or updating storage capacity descriptions.
+ */
 export async function updateLocation(id: string, data: any) {
     try {
         await dbConnect();
@@ -49,7 +64,7 @@ export async function updateLocation(id: string, data: any) {
         
         const updated = await Location.findByIdAndUpdate(id, validatedData, { new: true });
 
-        // 🔔 Notification de modification
+        // Alert administrators about the update to track configuration changes
         await createNotification({
             recipientRole: "admin",
             title: "🔄 Emplacement modifié",
@@ -65,13 +80,17 @@ export async function updateLocation(id: string, data: any) {
     }
 }
 
+/**
+ * Removes a location from the library's physical map.
+ * This should be used with caution as it might affect items currently assigned to it.
+ */
 export async function deleteLocation(id: string) {
     try {
         await dbConnect();
         const locationToDelete = await Location.findById(id);
 
         if (locationToDelete) {
-            // 🔔 Notification de suppression
+            // Log the deletion in the notification system before the record is gone
             await createNotification({
                 recipientRole: "admin",
                 title: "🗑️ Emplacement supprimé",

@@ -2,12 +2,17 @@
 
 import { revalidatePath } from 'next/cache';
 import { Item } from '@/lib/models/Item';
-import { Work } from '@/lib/models/Work'; // Import nécessaire pour récupérer le titre
+import { Work } from '@/lib/models/Work'; 
 import '@/lib/models/Work';
 import { itemSchema } from '@/lib/validation/item';
 import dbConnect from '@/lib/mongodb';
 import { createNotification } from '@/actions/notification-actions';
 
+/**
+ * Retrieves all physical copies (items) in the library.
+ * It deeply populates the 'work' details (title, authors) and the 'location' 
+ * to provide a complete view of where each book is and what it is.
+ */
 export async function getItems() {
     try {
         await dbConnect();
@@ -22,23 +27,30 @@ export async function getItems() {
             })
             .populate('location', 'name')
             .sort({ createdAt: -1 });
+            
+        // Standardizing the output for Next.js Client Components
         return JSON.parse(JSON.stringify(items));
     } catch (error) {
         throw new Error("Erreur lors de la récupération des exemplaires");
     }
 }
 
+/**
+ * Registers a new physical copy of a book in the inventory.
+ * Each copy must have a unique barcode to be tracked individually.
+ */
 export async function createItem(data: any) {
     try {
         await dbConnect();
         const validatedData = itemSchema.parse(data);
         
+        // Safety check: Avoid duplicate barcodes which would break the tracking system
         const existing = await Item.findOne({ barcode: validatedData.barcode });
         if (existing) throw new Error("Ce code-barres est déjà utilisé");
 
         const newItem = await Item.create(validatedData);
         
-        // Notification : Nouvel exemplaire en rayon
+        // Fetching the parent 'Work' title to make the notification human-readable
         const work = await Work.findById(newItem.work);
         await createNotification({
             recipientRole: "librarian",
@@ -56,16 +68,20 @@ export async function createItem(data: any) {
     }
 }
 
+/**
+ * Updates the details or status of a specific copy.
+ * Special logic is included to alert admins if a copy is lost or sent to maintenance.
+ */
 export async function updateItem(id: string, data: any) {
     try {
         await dbConnect();
         const validatedData = itemSchema.parse(data);
         
-        // On récupère l'ancien état pour comparer
+        // We keep track of the state before the update to detect significant changes
         const oldItem = await Item.findById(id);
         const updated = await Item.findByIdAndUpdate(id, validatedData, { new: true });
 
-        // Notification si l'état change vers "Lost" ou "Maintenance"
+        // Trigger high-priority alerts for critical status changes (Lost or Maintenance)
         if (oldItem.status !== updated.status && (updated.status === "Lost" || updated.status === "Maintenance")) {
             const work = await Work.findById(updated.work);
             await createNotification({
@@ -85,9 +101,14 @@ export async function updateItem(id: string, data: any) {
     }
 }
 
+/**
+ * Permanently removes a physical copy from the library records.
+ * Useful for disposing of old, damaged, or erroneous entries.
+ */
 export async function deleteItem(id: string) {
     try {
         await dbConnect();
+        // We populate the title before deletion so we don't lose the context for the notification
         const itemToDelete = await Item.findById(id).populate('work', 'title');
         
         if (itemToDelete) {

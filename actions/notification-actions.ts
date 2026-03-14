@@ -5,7 +5,8 @@ import { Notification } from "@/lib/models/Notification";
 import { revalidatePath } from "next/cache";
 
 /**
- * Créer une notification (individuelle ou par rôle)
+ * Dispatches a new notification to a specific user or an entire staff group.
+ * This is the engine behind all the alerts seen in the library's modules.
  */
 export async function createNotification(params: {
     recipient?: string;
@@ -20,7 +21,8 @@ export async function createNotification(params: {
         await dbConnect();
         const notification = await Notification.create(params);
         
-        // On revalide le layout pour que la cloche se mette à jour
+        // We revalidate the entire layout to ensure the notification bell 
+        // badge updates instantly across the dashboard.
         revalidatePath("/", "layout");
         return { success: true, data: JSON.parse(JSON.stringify(notification)) };
     } catch (error) {
@@ -30,19 +32,20 @@ export async function createNotification(params: {
 }
 
 /**
- * Récupérer les notifications d'un utilisateur (personnelles + liées à son rôle)
+ * Retrieves the notification feed for a logged-in user.
+ * It intelligently merges private messages and role-based announcements.
  */
 export async function getMyNotifications(userId: string, role: string) {
     try {
         await dbConnect();
         const notifications = await Notification.find({
             $or: [
-                { recipient: userId },
-                { recipientRole: role }
+                { recipient: userId }, // Private alerts
+                { recipientRole: role } // Global staff/reader alerts
             ]
         })
-        .sort({ createdAt: -1 })
-        .limit(30);
+        .sort({ createdAt: -1 }) // Show the freshest news first
+        .limit(30); // Keep the feed fast and lightweight
 
         return JSON.parse(JSON.stringify(notifications));
     } catch (error) {
@@ -51,7 +54,8 @@ export async function getMyNotifications(userId: string, role: string) {
 }
 
 /**
- * Compter les notifications non lues
+ * Calculates the number of unread alerts for the current session.
+ * Essential for displaying the numeric badge on the sidebar's bell icon.
  */
 export async function getUnreadCount(userId: string, role: string) {
     try {
@@ -70,7 +74,8 @@ export async function getUnreadCount(userId: string, role: string) {
 }
 
 /**
- * Marquer une notification comme lue
+ * Flags a specific notification as 'seen'.
+ * Triggers a layout refresh to decrement the unread badge count immediately.
  */
 export async function markAsRead(notificationId: string) {
     try {
@@ -84,7 +89,8 @@ export async function markAsRead(notificationId: string) {
 }
 
 /**
- * Marquer TOUTES les notifications comme lues
+ * Bulk-clears all unread messages for a user.
+ * Perfect for the "Mark all as read" button in the notification panel.
  */
 export async function markAllAsRead(userId: string, role: string) {
     try {
@@ -104,7 +110,7 @@ export async function markAllAsRead(userId: string, role: string) {
 }
 
 /**
- * Supprimer une notification
+ * Permanently removes an alert from the user's feed.
  */
 export async function deleteNotification(notificationId: string) {
     try {

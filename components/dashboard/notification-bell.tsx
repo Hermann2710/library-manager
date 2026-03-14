@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Bell } from "lucide-react";
+import { Bell, CheckCheck, Inbox } from "lucide-react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -17,6 +17,7 @@ import { formatDistanceToNow } from "date-fns";
 import { fr } from "date-fns/locale";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface Props {
     userId: string;
@@ -36,7 +37,6 @@ export function NotificationBell({ userId, role }: Props) {
 
     useEffect(() => {
         fetchNotifications();
-        // Optionnel : Polling toutes les 30 secondes pour les nouvelles notifications
         const interval = setInterval(fetchNotifications, 30000);
         return () => clearInterval(interval);
     }, [userId, role]);
@@ -47,7 +47,8 @@ export function NotificationBell({ userId, role }: Props) {
         if (link) router.push(link);
     };
 
-    const handleMarkAllAsRead = async () => {
+    const handleMarkAllAsRead = async (e: React.MouseEvent) => {
+        e.stopPropagation(); // Évite de fermer le menu par erreur
         await markAllAsRead(userId, role);
         await fetchNotifications();
     };
@@ -55,12 +56,15 @@ export function NotificationBell({ userId, role }: Props) {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="h-5 w-5" />
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative hover:bg-muted/60 transition-colors group"
+                >
+                    <Bell className="h-5 w-5 group-hover:text-primary transition-colors" />
                     {unreadCount > 0 && (
                         <Badge
-                            variant="destructive"
-                            className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center rounded-full p-0 text-[10px]"
+                            className="absolute -top-1 -right-1 h-4 min-w-4 flex items-center justify-center rounded-full p-1 text-[9px] font-black border-2 border-background shadow-sm"
                         >
                             {unreadCount > 9 ? "9+" : unreadCount}
                         </Badge>
@@ -68,41 +72,53 @@ export function NotificationBell({ userId, role }: Props) {
                 </Button>
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end" className="w-80">
-                <DropdownMenuLabel className="flex justify-between items-center">
-                    <span>Notifications</span>
+            <DropdownMenuContent
+                align="end"
+                className="w-80 rounded-2xl border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl p-0 overflow-hidden"
+            >
+                <DropdownMenuLabel className="px-4 py-4 flex justify-between items-center bg-muted/10">
+                    <span className="text-[10px] font-black uppercase italic tracking-[0.2em] text-muted-foreground"> Flux Notifications </span>
                     {unreadCount > 0 && (
                         <button
                             onClick={handleMarkAllAsRead}
-                            className="text-xs text-primary hover:underline font-normal"
+                            className="flex items-center gap-1.5 text-[9px] font-black uppercase italic text-primary hover:opacity-70 transition-opacity"
                         >
-                            Tout marquer comme lu
+                            <CheckCheck className="h-3 w-3" />
+                            Tout effacer
                         </button>
                     )}
                 </DropdownMenuLabel>
-                <DropdownMenuSeparator />
 
-                <div className="max-h-80 overflow-y-auto">
+                <DropdownMenuSeparator className="m-0 opacity-40" />
+
+                <div className="max-h-80 overflow-y-auto scrollbar-hide">
                     {notifications.length === 0 ? (
-                        <div className="p-4 text-center text-sm text-muted-foreground">
-                            Aucune notification
+                        <div className="py-12 flex flex-col items-center justify-center gap-2 opacity-20">
+                            <Inbox className="h-8 w-8 stroke-[1px]" />
+                            <span className="text-[10px] font-black uppercase tracking-widest italic">Terminal Vide</span>
                         </div>
                     ) : (
-                        notifications.slice(0, 5).map((notification) => (
+                        notifications.slice(0, 8).map((notification) => (
                             <DropdownMenuItem
                                 key={notification._id}
-                                className={`flex flex-col items-start p-3 cursor-pointer ${!notification.isRead ? "bg-muted/50" : ""}`}
+                                className={cn(
+                                    "flex flex-col items-start px-4 py-3 cursor-pointer border-b border-border/10 last:border-0 focus:bg-muted/50 transition-colors",
+                                    !notification.isRead && "bg-primary/3"
+                                )}
                                 onClick={() => handleMarkAsRead(notification._id, notification.link)}
                             >
-                                <div className="flex justify-between w-full items-start gap-2">
-                                    <span className={`font-semibold text-sm ${!notification.isRead ? "text-primary" : ""}`}>
+                                <div className="flex justify-between w-full items-start gap-3">
+                                    <span className={cn(
+                                        "text-[11px] font-black uppercase italic tracking-tighter leading-none",
+                                        !notification.isRead ? "text-primary" : "text-muted-foreground/70"
+                                    )}>
                                         {notification.title}
                                     </span>
-                                    <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true, locale: fr })}
+                                    <span className="text-[8px] font-bold uppercase opacity-30 whitespace-nowrap pt-0.5">
+                                        {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: false, locale: fr })}
                                     </span>
                                 </div>
-                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                                <p className="text-[10px] font-medium text-muted-foreground/60 line-clamp-2 mt-1.5 leading-relaxed">
                                     {notification.message}
                                 </p>
                             </DropdownMenuItem>
@@ -110,12 +126,18 @@ export function NotificationBell({ userId, role }: Props) {
                     )}
                 </div>
 
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="w-full text-center justify-center cursor-pointer font-medium p-2">
-                    <Link href="/dashboard/notifications">
-                        Voir toutes les notifications
-                    </Link>
-                </DropdownMenuItem>
+                <DropdownMenuSeparator className="m-0 opacity-40" />
+
+                <div className="p-2 bg-muted/5">
+                    <DropdownMenuItem asChild className="w-full h-10 flex justify-center items-center cursor-pointer rounded-xl focus:bg-primary/10">
+                        <Link
+                            href="/dashboard/notifications"
+                            className="text-[10px] font-black uppercase italic tracking-[0.2em] text-primary/60"
+                        >
+                            Ouvrir le centre de contrôle
+                        </Link>
+                    </DropdownMenuItem>
+                </div>
             </DropdownMenuContent>
         </DropdownMenu>
     );

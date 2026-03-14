@@ -27,7 +27,6 @@ const librarianNav = [
 const adminNav = [
   { title: "Utilisateurs (Comptes)", url: "/dashboard/admin/users", icon: Users },
   { title: "Statistiques", url: "/dashboard/admin/stats", icon: BarChart3 },
-  { title: "Maintenance BD", url: "/dashboard/admin/logs", icon: Database },
 ];
 
 export const DASHBOARD_CONFIG = {

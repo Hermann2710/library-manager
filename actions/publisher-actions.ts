@@ -6,18 +6,27 @@ import { publisherSchema } from '@/lib/validation/publisher';
 import dbConnect from '@/lib/mongodb';
 import { createNotification } from '@/actions/notification-actions';
 
+/**
+ * Retrieves the full list of publishing houses.
+ * Sorted alphabetically by name to keep the management list organized.
+ */
 export async function getPublishers() {
     await dbConnect();
     const publishers = await Publisher.find().sort({ name: 1 });
     return JSON.parse(JSON.stringify(publishers));
 }
 
+/**
+ * Adds a new publisher to the system.
+ * Useful for expanding the library's network and catalog diversity.
+ */
 export async function createPublisher(data: any) {
     await dbConnect();
+    // Validate name, contact info, or website via the Zod schema
     const validatedData = publisherSchema.parse(data);
     const newPublisher = await Publisher.create(validatedData);
 
-    // 🔔 Notification pour l'équipe administrative
+    // Alert admins that a new partner/entity is now available in the inventory system
     await createNotification({
         recipientRole: "admin",
         title: "🏢 Nouvel éditeur",
@@ -31,12 +40,16 @@ export async function createPublisher(data: any) {
     return JSON.parse(JSON.stringify(newPublisher));
 }
 
+/**
+ * Updates a publisher's details.
+ * Essential for keeping contact information or branding up to date.
+ */
 export async function updatePublisher(id: string, data: any) {
     await dbConnect();
     const validatedData = publisherSchema.parse(data);
     const updated = await Publisher.findByIdAndUpdate(id, validatedData, { new: true });
 
-    // 🔔 Notification de modification
+    // Notify the team about the change to maintain data transparency
     await createNotification({
         recipientRole: "admin",
         title: "🔄 Éditeur mis à jour",
@@ -49,12 +62,16 @@ export async function updatePublisher(id: string, data: any) {
     return JSON.parse(JSON.stringify(updated));
 }
 
+/**
+ * Removes a publisher from the database.
+ * Sends a notification before deletion to capture the name for the logs.
+ */
 export async function deletePublisher(id: string) {
     await dbConnect();
     const publisherToDelete = await Publisher.findById(id);
     
     if (publisherToDelete) {
-        // 🔔 Notification de suppression
+        // Highlighting this as a medium priority since it might affect book references
         await createNotification({
             recipientRole: "admin",
             title: "🗑️ Éditeur supprimé",

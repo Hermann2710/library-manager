@@ -17,7 +17,7 @@ export default proxy((req) => {
    */
   if (isAuthRoute) {
     if (isLoggedIn) {
-      return NextResponse.redirect(new URL("/", nextUrl));
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
     return NextResponse.next();
   }
@@ -27,7 +27,7 @@ export default proxy((req) => {
    * Only 'admin' can access /admin/...
    */
   if (isAdminRoute && userRole !== "admin") {
-    return NextResponse.redirect(new URL("/", nextUrl));
+    return NextResponse.redirect(new URL("/dashboard", nextUrl));
   }
 
   /**
@@ -37,7 +37,7 @@ export default proxy((req) => {
   if (isLibrarianRoute) {
     const hasAccess = userRole === "admin" || userRole === "librarian";
     if (!hasAccess) {
-      return NextResponse.redirect(new URL("/", nextUrl));
+      return NextResponse.redirect(new URL("/dashboard", nextUrl));
     }
   }
 

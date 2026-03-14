@@ -4,7 +4,9 @@ import { CookieBanner } from "@/components/navigation/cookie-banner";
 import { Toaster } from "sonner";
 
 /**
- * Main layout for the public-facing side of the application.
+ * HomeLayout Component.
+ * Defines the public structural shell of the application.
+ * Ensures the Footer stays at the bottom and manages global floating UI elements.
  */
 export default function HomeLayout({
     children,
@@ -13,20 +15,29 @@ export default function HomeLayout({
 }) {
     return (
         <div className="relative flex min-h-screen flex-col">
-            {/* Navigation collante */}
+            {/* Sticky or static Navigation bar 
+                Positioned at the top of the viewport.
+            */}
             <Navbar />
 
-            {/* Contenu principal flexible */}
-            <main className="flex-1">
+            {/* Main content area 
+                'flex-1' ensures this section expands to push the footer to the bottom
+                even when the page content is short.
+            */}
+            <main className="flex-1 animate-in fade-in duration-700">
                 {children}
             </main>
 
-            {/* Pied de page global */}
+            {/* Global site footer 
+                Contains links to legal pages like CGU, Privacy, and Cookies.
+            */}
             <Footer />
 
-            {/* Composants flottants dynamiques */}
+            {/* Dynamic floating components 
+                CookieBanner: Handles GDPR compliance.
+                Toaster: Displays system notifications with rich colors at the top-right.
+            */}
             <CookieBanner />
-            <Toaster position="top-right" richColors />
         </div>
     );
 }

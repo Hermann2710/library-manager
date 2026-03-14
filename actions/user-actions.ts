@@ -6,11 +6,16 @@ import dbConnect from '@/lib/mongodb';
 import { auth } from '@/auth';
 import { createNotification } from '@/actions/notification-actions';
 
+/**
+ * Fetches the entire list of registered users.
+ * Strictly restricted to users with the 'admin' role to ensure data privacy.
+ */
 export async function getAllUsers() {
     try {
         await dbConnect();
         const session = await auth();
         
+        // Identity check: Only admins can view the global user list
         if (session?.user?.role !== "admin") {
             throw new Error("Accès non autorisé");
         }
@@ -22,6 +27,11 @@ export async function getAllUsers() {
     }
 }
 
+/**
+ * Updates a user's permissions (role).
+ * Essential for promoting members to librarians or admins.
+ * Sends alerts to the concerned user and logs the action for other admins.
+ */
 export async function updateUserRole(userId: string, newRole: string) {
     try {
         await dbConnect();
@@ -31,7 +41,7 @@ export async function updateUserRole(userId: string, newRole: string) {
 
         const updatedUser = await User.findByIdAndUpdate(userId, { role: newRole }, { new: true });
         
-        // 🔔 Notification pour l'utilisateur concerné
+        // High-priority alert: The user needs to know their access level has changed
         await createNotification({
             recipient: userId,
             title: "🔑 Vos permissions ont changé",
@@ -41,7 +51,7 @@ export async function updateUserRole(userId: string, newRole: string) {
             link: "/dashboard"
         });
 
-        // 🔔 Notification pour les autres Admins (Audit)
+        // Audit Trail: Notify other admins about this administrative action
         await createNotification({
             recipientRole: "admin",
             title: "🛡️ Changement de rôle",
@@ -57,6 +67,10 @@ export async function updateUserRole(userId: string, newRole: string) {
     }
 }
 
+/**
+ * Permanently deletes a user account.
+ * Includes safety checks to prevent admins from accidentally deleting themselves.
+ */
 export async function deleteUserAccount(userId: string) {
     try {
         await dbConnect();
@@ -64,11 +78,12 @@ export async function deleteUserAccount(userId: string) {
         
         if (session?.user?.role !== "admin") throw new Error("Action interdite");
 
+        // Self-deletion guardrail
         if (session.user.id === userId) throw new Error("Vous ne pouvez pas supprimer votre propre compte");
 
         const userToDelete = await User.findById(userId);
 
-        // 🔔 Notification pour les autres Admins (Trace de suppression)
+        // Notify admins about the account closure for traceability
         if (userToDelete) {
             await createNotification({
                 recipientRole: "admin",
@@ -87,6 +102,10 @@ export async function deleteUserAccount(userId: string) {
     }
 }
 
+/**
+ * Allows a user to update their own profile information.
+ * Synchronizes the changes and triggers a UI refresh for the session data.
+ */
 export async function updateProfile(values: { name: string; email: string; image?: string }) {
     try {
         await dbConnect();
@@ -104,7 +123,7 @@ export async function updateProfile(values: { name: string; email: string; image
             { new: true }
         );
 
-        // Optionnel : Notifier l'utilisateur du succès de la modification
+        // Immediate feedback to the user confirming their changes were saved
         await createNotification({
             recipient: session.user.id,
             title: "👤 Profil mis à jour",
