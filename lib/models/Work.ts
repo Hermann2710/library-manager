@@ -29,6 +29,6 @@ const WorkSchema = new Schema<IWork>({
 }, { timestamps: true });
 
 // Index pour la recherche textuelle sur le titre
-WorkSchema.index({ title: 'text' });
+WorkSchema.index({ title: 'text' }, { language_override: 'dummy' });
 
 export const Work = models.Work || model<IWork>("Work", WorkSchema);

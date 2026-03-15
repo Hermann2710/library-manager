@@ -6,7 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:taxonomy": "tsx --env-file=.env.local seed/taxonomy.ts",
+    "seed:location": "tsx --env-file=.env.local seed/location.ts",
+    "seed:author": "tsx --env-file=.env.local seed/author.ts",
+    "seed:publisher": "tsx --env-file=.env.local seed/publisher.ts",
+    "seed:work": "tsx --env-file=.env.local seed/work.ts",
+    "seed:item": "tsx --env-file=.env.local seed/item.ts",
+    "seed:all": "pnpm seed:taxonomy && pnpm seed:location && pnpm seed:author && pnpm seed:publisher && pnpm seed:work && pnpm seed:item"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.11.1",
@@ -47,6 +54,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }
