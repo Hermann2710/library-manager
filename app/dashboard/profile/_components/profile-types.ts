@@ -12,6 +12,8 @@ export const profileSchema = z.object({
   name: z.string().min(2, "Le nom est trop court"),
   email: z.string().email("Email invalide"),
   image: z.string().optional(),
+  phone: z.string().trim().max(30, "Le contact est trop long").optional(),
+  address: z.string().trim().max(180, "L'adresse est trop longue").optional(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileSchema>;

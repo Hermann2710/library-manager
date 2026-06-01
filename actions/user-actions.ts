@@ -7,6 +7,7 @@ import { auth } from '@/auth';
 import { createNotification } from '@/actions/notification-actions';
 import { isRole } from '@/lib/access-control';
 import { assertRole } from '@/lib/rbac';
+import { Member } from '@/lib/models/Member';
 
 function getErrorMessage(error: unknown, fallback: string) {
     return error instanceof Error ? error.message : fallback;
@@ -96,7 +97,7 @@ export async function deleteUserAccount(userId: string) {
     }
 }
 
-export async function updateProfile(values: { name: string; email: string; image?: string }) {
+export async function updateProfile(values: { name: string; email: string; image?: string; phone?: string; address?: string }) {
     try {
         await dbConnect();
         const session = await auth();
@@ -109,6 +110,15 @@ export async function updateProfile(values: { name: string; email: string; image
                 name: values.name,
                 email: values.email,
                 image: values.image
+            },
+            { new: true }
+        );
+
+        await Member.findOneAndUpdate(
+            { user: session.user.id },
+            {
+                phone: values.phone?.trim() || "",
+                address: values.address?.trim() || ""
             },
             { new: true }
         );

@@ -16,7 +16,7 @@ export function MemberTab({ member }: { member: ProfileData["member"] }) {
           <>
             <Info label="Code membre" value={member.memberId} />
             <Info label="Statut" value={member.status} />
-            <Info label="Telephone" value={member.phone} />
+            <Info label="Contact" value={member.phone || "Non renseigne"} />
             <Info label="Adresse" value={member.address || "Non renseignee"} />
             <Info label="Inscrit le" value={formatDate(member.createdAt)} />
             <Info label="Expiration" value={formatDate(member.membershipExpiresAt)} />

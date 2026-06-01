@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Save, X } from "lucide-react";
 import type { UseFormReturn } from "react-hook-form";
 import type { ProfileFormValues, ProfileUser } from "./profile-types";
@@ -45,6 +46,14 @@ export function IdentityTab({ form, isEditing, onCancel, onEdit, onSubmit, user 
         <div className="space-y-2">
           <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Adresse email</label>
           <Input {...form.register("email")} disabled={!isEditing} className="h-12" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Contact</label>
+          <Input {...form.register("phone")} disabled={!isEditing} className="h-12" placeholder="+237 6XX XXX XXX" />
+        </div>
+        <div className="space-y-2">
+          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Adresse</label>
+          <Textarea {...form.register("address")} disabled={!isEditing} className="min-h-12 resize-none" placeholder="Quartier, ville" />
         </div>
       </div>
 

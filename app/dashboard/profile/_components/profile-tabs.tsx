@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSession } from "next-auth/react";
 import { Activity, IdCard, Palette, UserRound } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -18,6 +19,7 @@ import { profileSchema, type ProfileFormValues, type ProfileUser } from "./profi
 
 export function ProfileTabs({ user, profileData }: { user: ProfileUser; profileData: ProfileData }) {
   const { update } = useSession();
+  const router = useRouter();
   const [isEditing, setIsEditing] = useState(false);
 
   const form = useForm<ProfileFormValues>({
@@ -26,6 +28,8 @@ export function ProfileTabs({ user, profileData }: { user: ProfileUser; profileD
       name: user.name || "",
       email: user.email || "",
       image: user.image || "",
+      phone: profileData.member?.phone || "",
+      address: profileData.member?.address || "",
     },
   });
 
@@ -34,7 +38,9 @@ export function ProfileTabs({ user, profileData }: { user: ProfileUser; profileD
       const res = await updateProfile(values);
 
       if (res.success) {
-        await update({ ...user, ...values });
+        await update({ ...user, name: values.name, email: values.email, image: values.image });
+        form.reset(values);
+        router.refresh();
         toast.success("Profil et session synchronises");
         setIsEditing(false);
       }
