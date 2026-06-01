@@ -71,3 +71,11 @@ CLOUDINARY_FOLDER=library-manager
 - `docs/uml/sequence-reservation.md`
 - `docs/uml/sequence-upload-cloudinary.md`
 - `docs/uml/rbac-flow.md`
+
+## Documentation de stage
+
+- `docs/stage/README.md`
+- `docs/stage/stack-et-outils.md`
+- `docs/stage/rapport-stage.md`
+- `docs/stage/gantt.md`
+- `docs/stage/cahier-recette.md`
