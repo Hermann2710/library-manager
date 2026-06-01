@@ -3,9 +3,21 @@
 import * as React from "react";
 import { useSession } from "next-auth/react";
 import {
-    Search, Book, User, PenTool, Loader2,
-    Hash, Landmark, Tags, MapPin, ShieldCheck, Briefcase,
-    PlusCircle, ListFilter, LayoutDashboard, Clock
+    Book,
+    Briefcase,
+    Clock,
+    Hash,
+    Landmark,
+    LayoutDashboard,
+    ListFilter,
+    Loader2,
+    MapPin,
+    PenTool,
+    PlusCircle,
+    Search,
+    ShieldCheck,
+    Tags,
+    User,
 } from "lucide-react";
 import {
     Command,
@@ -15,138 +27,249 @@ import {
     CommandInput,
     CommandItem,
     CommandList,
-    CommandSeparator
+    CommandSeparator,
 } from "@/components/ui/command";
-import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { canAccessPath, isRole, type AppRole } from "@/lib/access-control";
+import { getDashboardSections } from "@/lib/dashboard-navigation";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
-interface RecentItem {
+type CommandResult = {
     id: string;
     title: string;
     type: string;
     url: string;
+};
+
+type QuickAction = {
+    id: string;
+    title: string;
+    type: string;
+    url: string;
+    icon: React.ComponentType<{ className?: string }>;
+    roles: AppRole[];
+};
+
+const quickActions: QuickAction[] = [
+    {
+        id: "browse-catalog",
+        title: "Parcourir le catalogue",
+        type: "Action",
+        url: "/dashboard/search",
+        icon: Search,
+        roles: ["reader", "librarian", "admin"],
+    },
+    {
+        id: "my-loans",
+        title: "Voir mes emprunts",
+        type: "Action",
+        url: "/dashboard/my-loans",
+        icon: Briefcase,
+        roles: ["reader", "librarian", "admin"],
+    },
+    {
+        id: "manage-loans",
+        title: "Valider les prets et retours",
+        type: "Action staff",
+        url: "/dashboard/librarian/loans",
+        icon: ListFilter,
+        roles: ["librarian", "admin"],
+    },
+    {
+        id: "manage-works",
+        title: "Gerer les ouvrages",
+        type: "Action staff",
+        url: "/dashboard/librarian/works",
+        icon: PlusCircle,
+        roles: ["librarian", "admin"],
+    },
+    {
+        id: "manage-users",
+        title: "Administrer les comptes",
+        type: "Action admin",
+        url: "/dashboard/admin/users",
+        icon: ShieldCheck,
+        roles: ["admin"],
+    },
+    {
+        id: "admin-stats",
+        title: "Consulter les statistiques",
+        type: "Action admin",
+        url: "/dashboard/admin/stats",
+        icon: LayoutDashboard,
+        roles: ["admin"],
+    },
+];
+
+function safeRole(role: unknown): AppRole {
+    return isRole(role) ? role : "reader";
+}
+
+function getIcon(type: string) {
+    const iconClass = "mr-3 h-4 w-4 opacity-70 shrink-0";
+
+    switch (type) {
+        case "Ouvrage":
+            return <Book className={cn(iconClass, "text-primary")} />;
+        case "Auteur":
+            return <PenTool className={cn(iconClass, "text-orange-500")} />;
+        case "Membre":
+            return <User className={cn(iconClass, "text-emerald-500")} />;
+        case "Exemplaire":
+            return <Hash className={cn(iconClass, "text-purple-500")} />;
+        case "Editeur":
+            return <Landmark className={cn(iconClass, "text-yellow-600")} />;
+        case "Taxonomie":
+        case "Categorie":
+        case "Genre":
+            return <Tags className={cn(iconClass, "text-pink-500")} />;
+        case "Emplacement":
+            return <MapPin className={cn(iconClass, "text-red-500")} />;
+        case "Utilisateur":
+            return <ShieldCheck className={cn(iconClass, "text-indigo-500")} />;
+        case "Mes emprunts":
+            return <Briefcase className={cn(iconClass, "text-sky-500")} />;
+        default:
+            return <Search className={iconClass} />;
+    }
 }
 
 export function GlobalSearch() {
     const { data: session } = useSession();
     const [open, setOpen] = React.useState(false);
     const [query, setQuery] = React.useState("");
-    const [results, setResults] = React.useState<any[]>([]);
-    const [recent, setRecent] = React.useState<RecentItem[]>([]);
+    const [results, setResults] = React.useState<CommandResult[]>([]);
+    const [recent, setRecent] = React.useState<CommandResult[]>([]);
     const [loading, setLoading] = React.useState(false);
     const router = useRouter();
 
-    const role = (session?.user as any)?.role;
+    const role = safeRole(session?.user?.role);
+    const visibleSections = React.useMemo(() => getDashboardSections(role), [role]);
+    const visibleActions = React.useMemo(
+        () => quickActions.filter((action) => action.roles.includes(role) && canAccessPath(action.url, role)),
+        [role]
+    );
+    const visibleRecent = React.useMemo(
+        () => recent.filter((item) => canAccessPath(item.url, role)),
+        [recent, role]
+    );
 
     React.useEffect(() => {
-        const saved = localStorage.getItem("recent-searches");
-        if (saved) setRecent(JSON.parse(saved));
-    }, []);
+        const saved = localStorage.getItem(`recent-searches:${role}`);
+        if (!saved) return;
+
+        try {
+            setRecent(JSON.parse(saved));
+        } catch {
+            setRecent([]);
+        }
+    }, [role]);
 
     React.useEffect(() => {
-        const down = (e: KeyboardEvent) => {
-            if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
-                e.preventDefault();
-                setOpen((open) => !open);
+        const down = (event: KeyboardEvent) => {
+            if (event.key === "k" && (event.metaKey || event.ctrlKey)) {
+                event.preventDefault();
+                setOpen((current) => !current);
             }
         };
+
         document.addEventListener("keydown", down);
         return () => document.removeEventListener("keydown", down);
     }, []);
 
     React.useEffect(() => {
         const search = async () => {
-            if (query.trim().length < 2) {
+            const trimmedQuery = query.trim();
+
+            if (trimmedQuery.length < 2) {
                 setResults([]);
                 return;
             }
+
             setLoading(true);
+
             try {
-                const res = await fetch(`/api/search?q=${encodeURIComponent(query)}`);
-                const data = await res.json();
-                setResults(Array.isArray(data) ? data : []);
+                const response = await fetch(`/api/search?q=${encodeURIComponent(trimmedQuery)}`);
+                const data = await response.json();
+                const allowedResults = Array.isArray(data)
+                    ? data.filter((item: CommandResult) => canAccessPath(item.url, role))
+                    : [];
+
+                setResults(allowedResults);
             } finally {
                 setLoading(false);
             }
         };
+
         const timer = setTimeout(search, 300);
         return () => clearTimeout(timer);
-    }, [query]);
+    }, [query, role]);
 
-    const saveToRecent = (item: RecentItem) => {
-        const updated = [item, ...recent.filter((r) => r.id !== item.id)].slice(0, 5);
+    const saveToRecent = (item: CommandResult) => {
+        const updated = [item, ...recent.filter((recentItem) => recentItem.id !== item.id)].slice(0, 6);
         setRecent(updated);
-        localStorage.setItem("recent-searches", JSON.stringify(updated));
+        localStorage.setItem(`recent-searches:${role}`, JSON.stringify(updated));
     };
 
-    const navigate = (path: string, item?: RecentItem) => {
+    const navigate = (path: string, item?: CommandResult) => {
+        if (!canAccessPath(path, role)) return;
+
         if (item) saveToRecent(item);
         setOpen(false);
+        setQuery("");
         router.push(path);
     };
 
-    const getIcon = (type: string) => {
-        const iconClass = "mr-3 h-4 w-4 opacity-70 shrink-0";
-        switch (type) {
-            case "Ouvrage": return <Book className={cn(iconClass, "text-primary")} />;
-            case "Auteur": return <PenTool className={cn(iconClass, "text-orange-500")} />;
-            case "Membre": return <User className={cn(iconClass, "text-emerald-500")} />;
-            case "Exemplaire": return <Hash className={cn(iconClass, "text-purple-500")} />;
-            case "Éditeur": return <Landmark className={cn(iconClass, "text-yellow-600")} />;
-            case "Taxonomie (Cat)":
-            case "Taxonomie (Genre)": return <Tags className={cn(iconClass, "text-pink-500")} />;
-            case "Emplacement": return <MapPin className={cn(iconClass, "text-red-500")} />;
-            case "Utilisateur": return <ShieldCheck className={cn(iconClass, "text-indigo-500")} />;
-            case "Mes Emprunts": return <Briefcase className={cn(iconClass, "text-sky-500")} />;
-            default: return <Search className={iconClass} />;
-        }
-    };
-
-    const types = Array.from(new Set(results.map(r => r.type)));
+    const groupedResults = React.useMemo(() => {
+        return Array.from(new Set(results.map((result) => result.type))).map((type) => ({
+            type,
+            items: results.filter((result) => result.type === type),
+        }));
+    }, [results]);
 
     return (
         <>
             <Button
                 variant="outline"
-                className="relative h-10 w-full justify-start rounded-xl bg-muted/40 text-[11px] font-black uppercase italic tracking-widest text-muted-foreground/60 lg:w-72 border-none shadow-inner hover:bg-muted/60 transition-all group"
+                className="relative h-10 w-full justify-start rounded-lg border-none bg-muted/40 text-[11px] font-black uppercase tracking-widest text-muted-foreground/60 shadow-inner transition-all hover:bg-muted/60 lg:w-72"
                 onClick={() => setOpen(true)}
             >
-                <Search className="mr-3 h-4 w-4 group-hover:text-primary transition-colors" />
-                <span>Search Core v2...</span>
-                <kbd className="absolute right-2 top-2 hidden h-6 select-none items-center gap-1 rounded-lg border border-border/40 bg-background px-2 font-mono text-[10px] font-bold sm:flex shadow-sm">
+                <Search className="mr-3 h-4 w-4 transition-colors group-hover:text-primary" />
+                <span>Commandes et recherche...</span>
+                <kbd className="absolute right-2 top-2 hidden h-6 select-none items-center gap-1 rounded-md border border-border/40 bg-background px-2 font-mono text-[10px] font-bold shadow-sm sm:flex">
                     <span className="text-[10px]">CTRL</span>K
                 </kbd>
             </Button>
 
             <CommandDialog open={open} onOpenChange={setOpen}>
-                <Command className="rounded-[2.5rem] border-border/40 bg-background/95 backdrop-blur-xl shadow-2xl overflow-hidden flex flex-col">
-
+                <Command className="flex flex-col overflow-hidden rounded-lg border-border/40 bg-background/95 shadow-2xl backdrop-blur-xl">
                     <div className="border-b bg-muted/10">
                         <CommandInput
-                            placeholder="RECHERCHE GLOBALE D'INDEX..."
+                            placeholder={`Rechercher comme ${role}...`}
                             value={query}
                             onValueChange={setQuery}
-                            className="h-16 w-full font-black uppercase italic tracking-tighter placeholder:text-muted-foreground/30 focus:ring-0 border-none bg-transparent"
+                            className="h-16 w-full border-none bg-transparent font-black uppercase tracking-tight placeholder:text-muted-foreground/30 focus:ring-0"
                         />
                     </div>
 
-                    <CommandList className="max-h-125 scrollbar-hide p-4">
-                        {query.length < 2 && (
+                    <CommandList className="max-h-125 p-4">
+                        {query.trim().length < 2 && (
                             <>
-                                {recent.length > 0 && (
-                                    <CommandGroup heading={<span className="text-[10px] font-black uppercase tracking-[0.3em] italic text-primary/40 px-2">Récents</span>}>
-                                        {recent.map((item) => (
+                                {visibleRecent.length > 0 && (
+                                    <CommandGroup heading={<span className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/50">Recents</span>}>
+                                        {visibleRecent.map((item) => (
                                             <CommandItem
                                                 key={item.id}
+                                                value={`recent-${item.type}-${item.title}`}
                                                 onSelect={() => navigate(item.url, item)}
-                                                className="rounded-xl py-3 px-4 mb-1 cursor-pointer flex items-center justify-between"
+                                                className="mb-1 flex cursor-pointer items-center justify-between rounded-lg px-4 py-3"
                                             >
-                                                <div className="flex items-center min-w-0 flex-1">
-                                                    <Clock className="mr-3 h-4 w-4 text-muted-foreground/40 shrink-0" />
-                                                    <span className="text-xs font-bold uppercase tracking-tight truncate">{item.title}</span>
+                                                <div className="flex min-w-0 flex-1 items-center">
+                                                    <Clock className="mr-3 h-4 w-4 shrink-0 text-muted-foreground/40" />
+                                                    <span className="truncate text-xs font-bold uppercase tracking-tight">{item.title}</span>
                                                 </div>
-                                                <span className="ml-4 text-[8px] font-black uppercase tracking-widest bg-muted px-2 py-0.5 rounded-md opacity-40 shrink-0">
+                                                <span className="ml-4 shrink-0 rounded-md bg-muted px-2 py-0.5 text-[8px] font-black uppercase tracking-widest opacity-50">
                                                     {item.type}
                                                 </span>
                                             </CommandItem>
@@ -154,68 +277,71 @@ export function GlobalSearch() {
                                     </CommandGroup>
                                 )}
 
-                                <CommandGroup heading={<span className="text-[10px] font-black uppercase tracking-[0.3em] italic text-primary/40 px-2 mt-4">Système</span>}>
-                                    <CommandItem onSelect={() => navigate("/dashboard")} className="rounded-xl py-3 px-4 mb-1 cursor-pointer flex items-center">
-                                        <LayoutDashboard className="mr-3 h-4 w-4 text-primary/40 shrink-0" />
-                                        <span className="text-xs font-bold uppercase tracking-tight italic">Terminal Personnel</span>
-                                    </CommandItem>
-                                    {(role === "librarian" || role === "admin") && (
-                                        <CommandItem onSelect={() => navigate("/dashboard/librarian")} className="rounded-xl py-3 px-4 mb-1 cursor-pointer flex items-center">
-                                            <Book className="mr-3 h-4 w-4 text-primary/40 shrink-0" />
-                                            <span className="text-xs font-bold uppercase tracking-tight italic">Gestion Stock & Flux</span>
-                                        </CommandItem>
-                                    )}
-                                </CommandGroup>
+                                {visibleSections.map((section) => (
+                                    <CommandGroup
+                                        key={section.title}
+                                        heading={<span className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/50">{section.title}</span>}
+                                    >
+                                        {section.items.map((item) => (
+                                            <CommandItem
+                                                key={item.url}
+                                                value={`nav-${item.title}`}
+                                                onSelect={() => navigate(item.url)}
+                                                className="mb-1 flex cursor-pointer items-center rounded-lg px-4 py-3"
+                                            >
+                                                <item.icon className="mr-3 h-4 w-4 shrink-0 text-primary/50" />
+                                                <span className="text-xs font-bold uppercase tracking-tight">{item.title}</span>
+                                            </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                ))}
 
                                 <CommandSeparator className="my-4 opacity-40" />
 
-                                <CommandGroup heading={<span className="text-[10px] font-black uppercase tracking-[0.3em] italic text-primary/40 px-2">Actions Directes</span>}>
-                                    {(role === "librarian" || role === "admin") ? (
-                                        <>
-                                            <CommandItem onSelect={() => navigate("/dashboard/librarian/works/new")} className="rounded-xl py-3 px-4 mb-1 cursor-pointer flex items-center">
-                                                <PlusCircle className="mr-3 h-4 w-4 text-emerald-500/60 shrink-0" />
-                                                <span className="text-xs font-bold uppercase tracking-tight italic">Nouvelle Indexation</span>
-                                            </CommandItem>
-                                            <CommandItem onSelect={() => navigate("/dashboard/librarian/loans")} className="rounded-xl py-3 px-4 mb-1 cursor-pointer flex items-center">
-                                                <ListFilter className="mr-3 h-4 w-4 text-orange-500/60 shrink-0" />
-                                                <span className="text-xs font-bold uppercase tracking-tight italic">Monitoring des retours</span>
-                                            </CommandItem>
-                                        </>
-                                    ) : (
-                                        <CommandItem onSelect={() => navigate("/dashboard/search")} className="rounded-xl py-3 px-4 mb-1 cursor-pointer flex items-center">
-                                            <Search className="mr-3 h-4 w-4 text-sky-500/60 shrink-0" />
-                                            <span className="text-xs font-bold uppercase tracking-tight italic">Parcourir le catalogue global</span>
+                                <CommandGroup heading={<span className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/50">Actions rapides</span>}>
+                                    {visibleActions.map((action) => (
+                                        <CommandItem
+                                            key={action.id}
+                                            value={`action-${action.title}`}
+                                            onSelect={() => navigate(action.url, action)}
+                                            className="mb-1 flex cursor-pointer items-center rounded-lg px-4 py-3"
+                                        >
+                                            <action.icon className="mr-3 h-4 w-4 shrink-0 text-primary/50" />
+                                            <span className="text-xs font-bold uppercase tracking-tight">{action.title}</span>
                                         </CommandItem>
-                                    )}
+                                    ))}
                                 </CommandGroup>
                             </>
                         )}
 
-                        {!loading && query.length >= 2 && results.length === 0 && (
+                        {!loading && query.trim().length >= 2 && results.length === 0 && (
                             <CommandEmpty className="py-10 text-center">
-                                <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-20 italic">Aucune donnée correspondante</div>
+                                <div className="text-[10px] font-black uppercase tracking-[0.4em] opacity-30">Aucune donnee correspondante</div>
                             </CommandEmpty>
                         )}
 
                         {loading && (
-                            <div className="py-10 flex flex-col items-center justify-center gap-3">
+                            <div className="flex flex-col items-center justify-center gap-3 py-10">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                                <span className="text-[8px] font-black uppercase tracking-[0.5em] opacity-30">Scan des registres...</span>
+                                <span className="text-[8px] font-black uppercase tracking-[0.5em] opacity-40">Recherche...</span>
                             </div>
                         )}
 
-                        {!loading && types.map((type: any) => (
-                            <CommandGroup key={type} heading={<span className="text-[10px] font-black uppercase tracking-[0.3em] italic text-primary/40 px-2">{type}</span>}>
-                                {results.filter(r => r.type === type).map((item) => (
+                        {!loading && groupedResults.map((group) => (
+                            <CommandGroup
+                                key={group.type}
+                                heading={<span className="px-2 text-[10px] font-black uppercase tracking-[0.3em] text-primary/50">{group.type}</span>}
+                            >
+                                {group.items.map((item) => (
                                     <CommandItem
                                         key={`${item.type}-${item.id}`}
                                         value={`${item.type}-${item.title}-${item.id}`}
                                         onSelect={() => navigate(item.url, item)}
-                                        className="rounded-xl py-4 px-4 mb-1 cursor-pointer hover:bg-muted/50 flex items-center"
+                                        className="mb-1 flex cursor-pointer items-center rounded-lg px-4 py-4 hover:bg-muted/50"
                                     >
-                                        <div className="flex items-center min-w-0 flex-1">
+                                        <div className="flex min-w-0 flex-1 items-center">
                                             {getIcon(item.type)}
-                                            <span className="text-[13px] font-black uppercase italic tracking-tighter truncate">
+                                            <span className="truncate text-[13px] font-black uppercase tracking-tight">
                                                 {item.title}
                                             </span>
                                         </div>
@@ -225,18 +351,18 @@ export function GlobalSearch() {
                         ))}
                     </CommandList>
 
-                    <div className="border-t p-3 flex items-center justify-between bg-muted/20 mt-auto">
+                    <div className="mt-auto flex items-center justify-between border-t bg-muted/20 p-3">
                         <div className="flex gap-4">
-                            <div className="flex items-center gap-1.5 opacity-30">
-                                <kbd className="bg-background px-1.5 py-0.5 rounded text-[9px] font-black border border-border/40">ESC</kbd>
+                            <div className="flex items-center gap-1.5 opacity-40">
+                                <kbd className="rounded border border-border/40 bg-background px-1.5 py-0.5 text-[9px] font-black">ESC</kbd>
                                 <span className="text-[8px] font-bold uppercase">Fermer</span>
                             </div>
-                            <div className="flex items-center gap-1.5 opacity-30">
-                                <kbd className="bg-background px-1.5 py-0.5 rounded text-[9px] font-black border border-border/40">↵</kbd>
-                                <span className="text-[8px] font-bold uppercase">Sélectionner</span>
+                            <div className="flex items-center gap-1.5 opacity-40">
+                                <kbd className="rounded border border-border/40 bg-background px-1.5 py-0.5 text-[9px] font-black">Enter</kbd>
+                                <span className="text-[8px] font-bold uppercase">Selectionner</span>
                             </div>
                         </div>
-                        <span className="text-[8px] font-black uppercase italic tracking-[0.3em] opacity-20">LibManager Core v2.1</span>
+                        <span className="text-[8px] font-black uppercase tracking-[0.3em] opacity-30">BiblioGest CM</span>
                     </div>
                 </Command>
             </CommandDialog>

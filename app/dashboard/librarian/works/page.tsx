@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * WorksPage Component:
- * The central bibliographic repository of LibManager.
+ * The central bibliographic repository of BiblioGest CM.
  * Manages the "Work" entities (books/references) before they are assigned to physical copies.
  */
 export default function WorksPage() {
@@ -94,7 +94,7 @@ export default function WorksPage() {
                             </div>
                             <div className="text-center">
                                 <p className="text-[11px] font-black uppercase tracking-[0.4em] text-foreground">
-                                    LibManager Index
+                                    BiblioGest CM Index
                                 </p>
                                 <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground italic mt-1">
                                     Chargement du catalogue général...

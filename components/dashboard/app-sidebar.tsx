@@ -1,7 +1,8 @@
 "use client"
 
 import { useSession, signOut } from "next-auth/react";
-import { DASHBOARD_CONFIG } from "@/lib/dashboard-navigation";
+import { getDashboardSections } from "@/lib/dashboard-navigation";
+import { isRole } from "@/lib/access-control";
 import {
     Sidebar,
     SidebarContent,
@@ -20,7 +21,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ChevronUp, User2, LogOut, User, Settings, Sparkles } from "lucide-react";
+import { BookMarked, ChevronUp, User2, LogOut, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -35,11 +36,10 @@ export function AppSidebar() {
     const pathname = usePathname();
 
     // Safety first: fallback to 'reader' if no role is explicitly defined
-    const role = session?.user?.role || "reader";
+    const role = isRole(session?.user?.role) ? session.user.role : "reader";
     const user = session?.user;
 
-    // Load the specific navigation links for the current user's permissions
-    const menuItems = DASHBOARD_CONFIG[role];
+    const sections = getDashboardSections(role);
 
     return (
         <Sidebar collapsible="icon" className="border-r border-border/50 bg-card/50 backdrop-blur-xl">
@@ -53,56 +53,56 @@ export function AppSidebar() {
                     className="flex items-center gap-3 font-bold group w-full"
                 >
                     {/* The logo container with a nice gradient and a slight 'pop' on hover */}
-                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary to-primary/80 text-primary-foreground shadow-lg shadow-primary/20 transition-transform group-hover:scale-110">
-                        <Sparkles className="h-4 w-4 fill-current" />
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
+                        <BookMarked className="h-4 w-4" />
                     </div>
 
                     {/* App title and platform label, hidden automatically in icon mode */}
                     <div className="flex flex-col leading-none truncate group-data-[collapsible=icon]:hidden transition-all duration-300">
                         <span className="text-lg tracking-tight whitespace-nowrap">
-                            LibManager<span className="text-primary">.ai</span>
+                            BiblioGest CM
                         </span>
                         <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest mt-0.5 whitespace-nowrap">
-                            Platform
+                            Gestion de structure
                         </span>
                     </div>
                 </Link>
             </SidebarHeader>
 
             <SidebarContent className="overflow-x-hidden">
-                <SidebarGroup>
-                    <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/40 group-data-[collapsible=icon]:hidden">
-                        Navigation
-                    </SidebarGroupLabel>
+                {sections.map((section) => (
+                    <SidebarGroup key={section.title}>
+                        <SidebarGroupLabel className="px-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/50 group-data-[collapsible=icon]:hidden">
+                            {section.title}
+                        </SidebarGroupLabel>
 
-                    <SidebarMenu className="gap-1">
-                        {menuItems.map((item) => {
-                            // Tracking the active route to give visual feedback to the user
-                            const isActive = pathname === item.url;
+                        <SidebarMenu className="gap-1">
+                            {section.items.map((item) => {
+                                const isActive = pathname === item.url;
 
-                            return (
-                                <SidebarMenuItem key={item.url}>
-                                    <SidebarMenuButton
-                                        asChild
-                                        tooltip={item.title}
-                                        className={`h-10 px-2 transition-all duration-200 justify-start ${isActive
-                                            ? "bg-primary/10 text-primary font-medium shadow-sm ring-1 ring-primary/20"
-                                            : "hover:bg-sidebar-accent/50 text-muted-foreground hover:text-foreground"
-                                            }`}
-                                    >
-                                        <Link href={item.url} className="flex items-center w-full">
-                                            {/* shrink-0 is vital here to keep the icon perfectly centered when collapsed */}
-                                            <item.icon className={`h-5 w-5 shrink-0 ${isActive ? "scale-105" : ""}`} />
-                                            <span className="ml-3 truncate group-data-[collapsible=icon]:hidden">
-                                                {item.title}
-                                            </span>
-                                        </Link>
-                                    </SidebarMenuButton>
-                                </SidebarMenuItem>
-                            );
-                        })}
-                    </SidebarMenu>
-                </SidebarGroup>
+                                return (
+                                    <SidebarMenuItem key={item.url}>
+                                        <SidebarMenuButton
+                                            asChild
+                                            tooltip={item.title}
+                                            className={`h-10 px-2 transition-all duration-200 justify-start ${isActive
+                                                ? "bg-primary/10 text-primary font-medium shadow-sm ring-1 ring-primary/20"
+                                                : "hover:bg-sidebar-accent/60 text-muted-foreground hover:text-foreground"
+                                                }`}
+                                        >
+                                            <Link href={item.url} className="flex items-center w-full">
+                                                <item.icon className={`h-5 w-5 shrink-0 ${isActive ? "scale-105" : ""}`} />
+                                                <span className="ml-3 truncate group-data-[collapsible=icon]:hidden">
+                                                    {item.title}
+                                                </span>
+                                            </Link>
+                                        </SidebarMenuButton>
+                                    </SidebarMenuItem>
+                                );
+                            })}
+                        </SidebarMenu>
+                    </SidebarGroup>
+                ))}
             </SidebarContent>
 
             {/* Sidebar Footer:

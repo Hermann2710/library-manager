@@ -5,90 +5,84 @@ import User from '@/lib/models/User';
 import dbConnect from '@/lib/mongodb';
 import { auth } from '@/auth';
 import { createNotification } from '@/actions/notification-actions';
+import { isRole } from '@/lib/access-control';
+import { assertRole } from '@/lib/rbac';
 
-/**
- * Fetches the entire list of registered users.
- * Strictly restricted to users with the 'admin' role to ensure data privacy.
- */
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
+}
+
 export async function getAllUsers() {
     try {
         await dbConnect();
-        const session = await auth();
-        
-        // Identity check: Only admins can view the global user list
-        if (session?.user?.role !== "admin") {
-            throw new Error("Accès non autorisé");
-        }
+        await assertRole(["admin"]);
 
-        const users = await User.find().sort({ createdAt: -1 });
+        const users = await User.find()
+            .select("name email image role createdAt updatedAt")
+            .sort({ createdAt: -1 })
+            .lean();
+
         return JSON.parse(JSON.stringify(users));
-    } catch (error) {
-        throw new Error("Erreur lors de la récupération des utilisateurs");
+    } catch {
+        throw new Error("Erreur lors de la recuperation des utilisateurs");
     }
 }
 
-/**
- * Updates a user's permissions (role).
- * Essential for promoting members to librarians or admins.
- * Sends alerts to the concerned user and logs the action for other admins.
- */
 export async function updateUserRole(userId: string, newRole: string) {
     try {
         await dbConnect();
-        const session = await auth();
-        
-        if (session?.user?.role !== "admin") throw new Error("Action interdite");
+        const session = await assertRole(["admin"]);
+
+        if (!isRole(newRole)) {
+            throw new Error("Role invalide");
+        }
 
         const updatedUser = await User.findByIdAndUpdate(userId, { role: newRole }, { new: true });
-        
-        // High-priority alert: The user needs to know their access level has changed
+
+        if (!updatedUser) {
+            throw new Error("Utilisateur introuvable");
+        }
+
         await createNotification({
             recipient: userId,
-            title: "🔑 Vos permissions ont changé",
-            message: `Votre rôle a été mis à jour. Vous êtes désormais : ${newRole}.`,
+            title: "Permissions modifiees",
+            message: `Votre role a ete mis a jour. Vous etes desormais : ${newRole}.`,
             type: "system",
             priority: "high",
             link: "/dashboard"
         });
 
-        // Audit Trail: Notify other admins about this administrative action
         await createNotification({
             recipientRole: "admin",
-            title: "🛡️ Changement de rôle",
-            message: `${session.user.name} a promu/rétrogradé ${updatedUser.name} au rang de ${newRole}.`,
+            title: "Changement de role",
+            message: `${session.user.name} a modifie le role de ${updatedUser.name} en ${newRole}.`,
             type: "system",
             priority: "medium"
         });
 
         revalidatePath('/dashboard/admin/users');
         return { success: true };
-    } catch (error) {
-        throw new Error("Erreur lors du changement de rôle");
+    } catch (error: unknown) {
+        throw new Error(getErrorMessage(error, "Erreur lors du changement de role"));
     }
 }
 
-/**
- * Permanently deletes a user account.
- * Includes safety checks to prevent admins from accidentally deleting themselves.
- */
 export async function deleteUserAccount(userId: string) {
     try {
         await dbConnect();
-        const session = await auth();
-        
-        if (session?.user?.role !== "admin") throw new Error("Action interdite");
+        const session = await assertRole(["admin"]);
 
-        // Self-deletion guardrail
-        if (session.user.id === userId) throw new Error("Vous ne pouvez pas supprimer votre propre compte");
+        if (session.user.id === userId) {
+            throw new Error("Vous ne pouvez pas supprimer votre propre compte");
+        }
 
-        const userToDelete = await User.findById(userId);
+        const userToDelete = await User.findById(userId).select("name email").lean();
 
-        // Notify admins about the account closure for traceability
         if (userToDelete) {
             await createNotification({
                 recipientRole: "admin",
-                title: "🚨 Compte supprimé",
-                message: `Le compte de ${userToDelete.name} (${userToDelete.email}) a été définitivement supprimé par ${session.user.name}.`,
+                title: "Compte supprime",
+                message: `Le compte de ${userToDelete.name} (${userToDelete.email}) a ete definitivement supprime par ${session.user.name}.`,
                 type: "system",
                 priority: "high"
             });
@@ -97,44 +91,39 @@ export async function deleteUserAccount(userId: string) {
         await User.findByIdAndDelete(userId);
         revalidatePath('/dashboard/admin/users');
         return { success: true };
-    } catch (error) {
-        throw new Error("Erreur lors de la suppression");
+    } catch (error: unknown) {
+        throw new Error(getErrorMessage(error, "Erreur lors de la suppression"));
     }
 }
 
-/**
- * Allows a user to update their own profile information.
- * Synchronizes the changes and triggers a UI refresh for the session data.
- */
 export async function updateProfile(values: { name: string; email: string; image?: string }) {
     try {
         await dbConnect();
         const session = await auth();
-        
-        if (!session?.user?.id) throw new Error("Vous devez être connecté");
+
+        if (!session?.user?.id) throw new Error("Vous devez etre connecte");
 
         const updatedUser = await User.findByIdAndUpdate(
-            session.user.id, 
-            { 
-                name: values.name, 
-                email: values.email, 
-                image: values.image 
-            }, 
+            session.user.id,
+            {
+                name: values.name,
+                email: values.email,
+                image: values.image
+            },
             { new: true }
         );
 
-        // Immediate feedback to the user confirming their changes were saved
         await createNotification({
             recipient: session.user.id,
-            title: "👤 Profil mis à jour",
-            message: "Vos informations personnelles ont été modifiées avec succès.",
+            title: "Profil mis a jour",
+            message: "Vos informations personnelles ont ete modifiees avec succes.",
             type: "system",
             priority: "low"
         });
 
         revalidatePath('/dashboard/profile');
         return { success: true, user: JSON.parse(JSON.stringify(updatedUser)) };
-    } catch (error: any) {
-        throw new Error(error.message || "Erreur lors de la mise à jour du profil");
+    } catch (error: unknown) {
+        throw new Error(getErrorMessage(error, "Erreur lors de la mise a jour du profil"));
     }
 }

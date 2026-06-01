@@ -30,7 +30,7 @@ import { cn } from "@/lib/utils";
 /**
  * NotificationsClient Component.
  * Handles real-time filtering, searching, and status updates for notifications.
- * Designed with a "Heavy-Rounded" aesthetic to match the LibManager identity.
+ * Designed with a compact dashboard aesthetic for BiblioGest CM.
  */
 export function NotificationsClient({ initialNotifications, userId, userRole }: any) {
     const [notifications, setNotifications] = useState(initialNotifications);

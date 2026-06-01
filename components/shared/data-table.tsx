@@ -31,7 +31,7 @@ interface DataTableProps<TData, TValue> {
 /**
  * DataTable Component:
  * A headless table wrapper powered by TanStack Table.
- * Provides a consistent look for all administrative lists in LibManager.ai.
+ * Provides a consistent look for all dashboard lists.
  */
 export function DataTable<TData, TValue>({
     columns,

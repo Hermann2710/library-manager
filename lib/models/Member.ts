@@ -24,4 +24,7 @@ const MemberSchema = new Schema<IMember>({
   membershipExpiresAt: { type: Date, required: true },
 }, { timestamps: true });
 
+MemberSchema.index({ status: 1 });
+MemberSchema.index({ createdAt: 1 });
+
 export const Member = models.Member || model<IMember>("Member", MemberSchema);

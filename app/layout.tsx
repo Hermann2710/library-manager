@@ -15,8 +15,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
  * Global SEO and document metadata.
  */
 export const metadata: Metadata = {
-  title: "Library Manager",
-  description: "The best library manager web app using Next.js, MongoDB & TanStack",
+  title: "BiblioGest CM",
+  description: "Gestion de librairie et bibliotheque au Cameroun : catalogue, stock, prets, membres, staff et suggestions.",
 };
 
 export default function RootLayout({

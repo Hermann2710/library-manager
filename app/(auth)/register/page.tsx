@@ -1,7 +1,6 @@
-import { RegisterForm } from "@/components/auth/register-form";
+import { RegisterForm } from "../_components/register-form";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { BookOpen } from "lucide-react";
-import Link from "next/link";
 
 /**
  * RegisterPage component.

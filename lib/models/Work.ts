@@ -30,5 +30,9 @@ const WorkSchema = new Schema<IWork>({
 
 // Index pour la recherche textuelle sur le titre
 WorkSchema.index({ title: 'text' }, { language_override: 'dummy' });
+WorkSchema.index({ category: 1 });
+WorkSchema.index({ publisher: 1 });
+WorkSchema.index({ authors: 1 });
+WorkSchema.index({ genres: 1 });
 
 export const Work = models.Work || model<IWork>("Work", WorkSchema);

@@ -18,7 +18,7 @@ import Image from "next/image";
 
 /**
  * getWorkColumns:
- * Colonnes stylisées pour LibManager.
+ * Colonnes stylisées pour BiblioGest CM.
  * Inclut la gestion des images de couverture et un design "High-Density".
  */
 export const getWorkColumns = (

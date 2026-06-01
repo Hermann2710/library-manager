@@ -1,19 +1,24 @@
-import { Mail, Phone, MapPin } from "lucide-react";
+import { Mail, MapPin, Phone } from "lucide-react";
 
 export function ContactInfo() {
+    const items = [
+        { icon: <Mail />, text: "contact@bibliogest.cm", label: "Email" },
+        { icon: <Phone />, text: "+237 6 90 00 00 00", label: "Telephone" },
+        { icon: <MapPin />, text: "Douala, Cameroun", label: "Base" },
+    ];
+
     return (
         <div className="space-y-8">
             <div className="space-y-2">
                 <h2 className="text-2xl font-bold">Informations de contact</h2>
-                <p className="text-muted-foreground">Besoin d'une démonstration personnalisée ou d'un devis ?</p>
+                <p className="text-muted-foreground">
+                    Besoin d'aide pour mettre en place la gestion de votre librairie au Cameroun ?
+                </p>
             </div>
+
             <div className="space-y-4">
-                {[
-                    { icon: <Mail />, text: "contact@libmanager.ai", label: "Email" },
-                    { icon: <Phone />, text: "+33 1 23 45 67 89", label: "Téléphone" },
-                    { icon: <MapPin />, text: "123 Avenue de l'IA, Paris, France", label: "Bureau" },
-                ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-4 p-4 border rounded-xl">
+                {items.map((item) => (
+                    <div key={item.label} className="flex items-center gap-4 rounded-lg border p-4">
                         <div className="text-primary">{item.icon}</div>
                         <div>
                             <p className="text-xs font-bold uppercase text-muted-foreground">{item.label}</p>

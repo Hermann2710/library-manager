@@ -43,6 +43,9 @@ const UserSchema = new Schema<IUser>(
   }
 );
 
+UserSchema.index({ role: 1 });
+UserSchema.index({ createdAt: -1 });
+
 /**
  * Prevents Mongoose from recompiling the model during Next.js hot reloads.
  */

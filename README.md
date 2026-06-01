@@ -43,3 +43,31 @@ Système de gestion de bibliothèque moderne et haute performance conçu avec l'
 ├── lib/               # Modèles Mongoose, validations Zod, MongoDB config
 ├── hooks/             # Hooks personnalisés
 └── public/            # Assets et icônes
+```
+
+## Configuration Cloudinary
+
+L'API `/api/upload` envoie les fichiers vers Cloudinary. Deux modes sont supportes :
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_UPLOAD_PRESET=your_unsigned_preset
+CLOUDINARY_FOLDER=library-manager
+```
+
+Ou avec signature serveur :
+
+```env
+CLOUDINARY_CLOUD_NAME=your_cloud_name
+CLOUDINARY_API_KEY=your_api_key
+CLOUDINARY_API_SECRET=your_api_secret
+CLOUDINARY_FOLDER=library-manager
+```
+
+## Diagrammes UML
+
+- `docs/uml/class-diagram.md`
+- `docs/uml/use-case-diagram.md`
+- `docs/uml/sequence-reservation.md`
+- `docs/uml/sequence-upload-cloudinary.md`
+- `docs/uml/rbac-flow.md`

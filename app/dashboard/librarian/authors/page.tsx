@@ -116,7 +116,7 @@ export default function AuthorsPage() {
                         <div className="space-y-0.5">
                             <h4 className="text-[10px] font-black uppercase tracking-widest text-primary/80">Base de données auteurs</h4>
                             <p className="text-[10px] text-muted-foreground italic font-medium">
-                                {authors.length} auteurs référencés dans le catalogue LibManager.
+                                {authors.length} auteurs référencés dans le catalogue BiblioGest CM.
                             </p>
                         </div>
                     </div>

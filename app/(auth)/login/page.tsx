@@ -1,6 +1,5 @@
-import { LoginForm } from "@/components/auth/login-form";
+import { LoginForm } from "../_components/login-form";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
-import Link from "next/link";
 
 /**
  * LoginPage component.

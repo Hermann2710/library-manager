@@ -6,6 +6,7 @@ import { Item } from "@/lib/models/Item";
 import { Work } from "@/lib/models/Work";
 import { Member } from "@/lib/models/Member";
 import User from "@/lib/models/User";
+import { assertRole } from "@/lib/rbac";
 
 /**
  * Aggregates and calculates all key performance indicators (KPIs) and 
@@ -14,6 +15,7 @@ import User from "@/lib/models/User";
  * for complex data processing across multiple collections.
  */
 export async function getAdminDashboardStats() {
+    await assertRole(["admin"]);
     await dbConnect();
 
     // 1. Core KPIs
@@ -199,6 +201,7 @@ export async function getMemberDashboardStats(userId: string) {
  */
 export async function getLibrarianDashboardStats() {
     try {
+        await assertRole(["admin", "librarian"]);
         await dbConnect();
 
         const today = new Date();

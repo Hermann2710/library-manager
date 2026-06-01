@@ -1,32 +1,43 @@
+import { auth } from "@/auth";
+import { uploadToCloudinary } from "@/lib/cloudinary";
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+
+const MAX_FILE_SIZE = 8 * 1024 * 1024;
+const ALLOWED_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+]);
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
+    const session = await auth();
 
-    if (!file) {
-      return NextResponse.json({ error: "Aucun fichier reçu" }, { status: 400 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "Authentification requise" }, { status: 401 });
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadDir = path.join(process.cwd(), "public/uploads");
+    const formData = await request.formData();
+    const file = formData.get("file");
 
-    // Créer le dossier s'il n'existe pas
-    await mkdir(uploadDir, { recursive: true });
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: "Aucun fichier recu" }, { status: 400 });
+    }
 
-    // Nettoyer le nom du fichier pour éviter les conflits/caractères spéciaux
-    const filename = `${Date.now()}-${file.name.replaceAll(" ", "_")}`;
-    const filePath = path.join(uploadDir, filename);
+    if (!ALLOWED_TYPES.has(file.type)) {
+      return NextResponse.json({ error: "Type de fichier non autorise" }, { status: 400 });
+    }
 
-    await writeFile(filePath, buffer);
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json({ error: "Le fichier depasse 8 Mo" }, { status: 400 });
+    }
 
-    // Retourner l'URL publique
-    return NextResponse.json({ url: `/uploads/${filename}` });
+    const upload = await uploadToCloudinary(file);
+
+    return NextResponse.json(upload);
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json({ error: "Erreur lors de l'upload" }, { status: 500 });
+    return NextResponse.json({ error: "Erreur lors de l'upload Cloudinary" }, { status: 500 });
   }
 }

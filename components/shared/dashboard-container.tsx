@@ -39,7 +39,7 @@ export function DashboardContainer({
                             </p>
                         )}
 
-                        {/* Title: Strong, italic, and uppercase for that modern 'LibManager' punch */}
+                        {/* Title: Strong and compact for dashboard pages */}
                         {title && (
                             <h1 className="text-3xl font-black uppercase italic leading-none tracking-tight text-foreground">
                                 {title}

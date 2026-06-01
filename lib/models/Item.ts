@@ -28,4 +28,8 @@ const ItemSchema = new Schema<IItem>({
   notes: { type: String },
 }, { timestamps: true });
 
+ItemSchema.index({ status: 1 });
+ItemSchema.index({ work: 1 });
+ItemSchema.index({ location: 1 });
+
 export const Item = models.Item || model<IItem>("Item", ItemSchema);

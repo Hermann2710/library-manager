@@ -123,7 +123,7 @@ export function PublisherDialog({ isOpen, onOpenChange, publisher }: any) {
                         <Input
                             id="address"
                             {...register("address")}
-                            placeholder="123 rue de l'Édition, Paris"
+                            placeholder="Akwa, Douala"
                             className="rounded-xl h-11 border-border/60 text-sm italic"
                         />
                     </div>

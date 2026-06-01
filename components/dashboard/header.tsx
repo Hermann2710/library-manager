@@ -45,7 +45,7 @@ export function DashboardHeader() {
                     <BreadcrumbList>
                         <BreadcrumbItem>
                             <BreadcrumbLink href="/dashboard" className="transition-colors hover:text-primary font-medium">
-                                LibManager
+                                BiblioGest CM
                             </BreadcrumbLink>
                         </BreadcrumbItem>
 

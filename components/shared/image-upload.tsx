@@ -4,6 +4,7 @@ import { useState } from "react";
 import { UploadCloud, X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface ImageUploadProps {
     value?: string;
@@ -26,16 +27,27 @@ export function ImageUpload({ value, onChange, onRemove, className }: ImageUploa
      * Handles the asynchronous file transfer to the server.
      */
     const onUpload = async (file: File) => {
+        if (!file.type.startsWith("image/")) {
+            toast.error("Veuillez selectionner une image");
+            return;
+        }
+
         setLoading(true);
         const formData = new FormData();
         formData.append("file", file);
         try {
             const res = await fetch("/api/upload", { method: "POST", body: formData });
-            if (!res.ok) throw new Error("Upload failed");
             const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || "Upload failed");
+            }
+
             onChange(data.url);
+            toast.success("Image envoyee sur Cloudinary");
         } catch (error) {
             console.error("Upload Error:", error);
+            toast.error(error instanceof Error ? error.message : "Erreur lors de l'upload");
         } finally {
             setLoading(false);
         }

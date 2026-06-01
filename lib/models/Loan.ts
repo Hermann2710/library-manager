@@ -28,4 +28,9 @@ const LoanSchema = new Schema<ILoan>({
   notes: { type: String },
 }, { timestamps: true });
 
+LoanSchema.index({ status: 1, dueDate: 1 });
+LoanSchema.index({ member: 1, status: 1, dueDate: 1 });
+LoanSchema.index({ item: 1, status: 1 });
+LoanSchema.index({ updatedAt: 1 });
+
 export const Loan = models.Loan || model<ILoan>("Loan", LoanSchema);
