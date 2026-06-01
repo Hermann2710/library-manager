@@ -8,7 +8,7 @@ export interface ILoan {
   borrowDate: Date;
   dueDate: Date;
   returnDate?: Date;
-  status: "Pending" | "Active" | "Returned" | "Overdue"; // Ajout de Pending
+  status: "Pending" | "Active" | "Returned" | "Overdue" | "Rejected";
   notes?: string;
 }
 
@@ -22,7 +22,7 @@ const LoanSchema = new Schema<ILoan>({
   returnDate: { type: Date },
   status: { 
     type: String, 
-    enum: ["Pending", "Active", "Returned", "Overdue"], // Ajout de Pending ici
+    enum: ["Pending", "Active", "Returned", "Overdue", "Rejected"],
     default: "Pending" 
   },
   notes: { type: String },

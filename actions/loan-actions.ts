@@ -8,6 +8,9 @@ import { Work } from '@/lib/models/Work';
 import dbConnect from '@/lib/mongodb';
 import { auth } from '@/auth';
 import { createNotification } from '@/actions/notification-actions';
+import { assertRole } from '@/lib/rbac';
+
+const BLOCKING_LOAN_STATUSES = ["Pending", "Active", "Overdue"];
 
 /**
  * Fetches all loan records, including current, past, and pending ones.
@@ -52,7 +55,7 @@ export async function reserveItem(itemId: string) {
         // Enforcement of the '3-books-max' policy
         const activeCount = await Loan.countDocuments({ 
             member: member._id, 
-            status: { $in: ["Active", "Pending"] } 
+            status: { $in: BLOCKING_LOAN_STATUSES } 
         });
         
         if (activeCount >= 3) throw new Error("Limite de 3 livres atteinte");
@@ -60,6 +63,17 @@ export async function reserveItem(itemId: string) {
         // Verify the specific physical copy is actually on the shelf
         const item = await Item.findById(itemId).populate('work', 'title');
         if (!item || item.status !== "Available") throw new Error("Exemplaire non disponible");
+
+        const sameWorkItemIds = await Item.find({ work: (item.work as any)._id }).distinct("_id");
+        const existingSameWorkLoan = await Loan.exists({
+            member: member._id,
+            item: { $in: sameWorkItemIds },
+            status: { $in: BLOCKING_LOAN_STATUSES }
+        });
+
+        if (existingSameWorkLoan) {
+            throw new Error(`Vous avez deja une demande ou un emprunt actif pour "${(item.work as any).title}"`);
+        }
 
         // Set the standard 14-day return window
         const dueDate = new Date();
@@ -147,6 +161,19 @@ export async function validateLoan(loanId: string) {
             .populate('member');
             
         if (!loan) throw new Error("Emprunt introuvable");
+        if (loan.status !== "Pending") throw new Error("Seules les demandes en attente peuvent etre approuvees");
+
+        const sameWorkItemIds = await Item.find({ work: (loan.item as any).work._id }).distinct("_id");
+        const existingActiveSameWorkLoan = await Loan.exists({
+            _id: { $ne: loan._id },
+            member: (loan.member as any)._id,
+            item: { $in: sameWorkItemIds },
+            status: { $in: ["Active", "Overdue"] }
+        });
+
+        if (existingActiveSameWorkLoan) {
+            throw new Error(`Ce lecteur a deja un emprunt actif pour "${(loan.item as any).work.title}"`);
+        }
 
         loan.status = "Active";
         loan.borrowDate = new Date();
@@ -166,6 +193,45 @@ export async function validateLoan(loanId: string) {
         });
 
         revalidatePath('/dashboard/librarian/loans');
+        return { success: true };
+    } catch (error: any) {
+        return { error: error.message };
+    }
+}
+
+/**
+ * Allows staff to reject a pending reservation and release the item.
+ */
+export async function rejectLoan(loanId: string) {
+    try {
+        await dbConnect();
+        const session = await assertRole(["admin", "librarian"]);
+
+        const loan = await Loan.findById(loanId)
+            .populate({ path: 'item', populate: { path: 'work', select: 'title' }})
+            .populate('member');
+
+        if (!loan) throw new Error("Emprunt introuvable");
+        if (loan.status !== "Pending") throw new Error("Seules les demandes en attente peuvent etre refusees");
+
+        loan.status = "Rejected";
+        loan.librarian = session.user.id;
+        loan.notes = "Demande refusee par la librairie";
+        await loan.save();
+
+        await Item.findByIdAndUpdate((loan.item as any)._id, { status: "Available" });
+
+        await createNotification({
+            recipient: (loan.member as any).user.toString(),
+            title: "Demande d'emprunt refusee",
+            message: `Votre demande pour "${(loan.item as any).work.title}" a ete refusee. L'exemplaire est de nouveau disponible.`,
+            type: "loan",
+            priority: "medium",
+            link: "/dashboard/my-loans"
+        });
+
+        revalidatePath('/dashboard/librarian/loans');
+        revalidatePath('/dashboard/my-loans');
         return { success: true };
     } catch (error: any) {
         return { error: error.message };

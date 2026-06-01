@@ -5,7 +5,7 @@ export interface IItem {
   work: mongoose.Types.ObjectId;      // L'œuvre parente
   barcode: string;                    // Code unique (ex: BC-0001)
   location: mongoose.Types.ObjectId;  // Où il est rangé
-  status: "Available" | "Borrowed" | "Lost" | "Maintenance";
+  status: "Available" | "Reserved" | "Borrowed" | "Lost" | "Maintenance";
   condition: "New" | "Good" | "Worn" | "Damaged";
   notes?: string;
   createdAt: Date;
@@ -17,7 +17,7 @@ const ItemSchema = new Schema<IItem>({
   location: { type: Schema.Types.ObjectId, ref: "Location", required: true },
   status: { 
     type: String, 
-    enum: ["Available", "Borrowed", "Lost", "Maintenance"], 
+    enum: ["Available", "Reserved", "Borrowed", "Lost", "Maintenance"], 
     default: "Available" 
   },
   condition: { 

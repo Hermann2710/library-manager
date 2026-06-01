@@ -47,7 +47,7 @@ export async function LoansListWrapper({ userId }: { userId: string }) {
     // Categorizing loans by their lifecycle status
     const pending = plainLoans.filter((l: any) => l.status === "Pending");
     const active = plainLoans.filter((l: any) => l.status === "Active" || l.status === "Overdue");
-    const finished = plainLoans.filter((l: any) => l.status === "Returned");
+    const finished = plainLoans.filter((l: any) => l.status === "Returned" || l.status === "Rejected");
 
     return (
         <Tabs defaultValue="active" className="w-full animate-in fade-in slide-in-from-bottom-4 duration-1000">

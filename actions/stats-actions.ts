@@ -32,6 +32,7 @@ export async function getAdminDashboardStats() {
     // 2. Top Readers
     // Identifying the most active members by counting their entries in the Loan collection.
     const topReaders = await Loan.aggregate([
+        { $match: { status: { $in: ["Active", "Returned", "Overdue"] } } },
         { $group: { _id: "$member", loanCount: { $sum: 1 } } },
         { $sort: { loanCount: -1 } },
         { $limit: 5 },
@@ -46,6 +47,7 @@ export async function getAdminDashboardStats() {
     // 3. Top Books (Most Borrowed)
     // Ranking 'Works' based on how often their physical 'Items' are loaned out.
     const topBooks = await Loan.aggregate([
+        { $match: { status: { $in: ["Active", "Returned", "Overdue"] } } },
         { $group: { _id: "$item", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 5 },
