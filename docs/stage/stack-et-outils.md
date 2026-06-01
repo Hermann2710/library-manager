@@ -16,7 +16,7 @@
 | Upload media | Cloudinary | Hebergement des images de livres et profils |
 | Etat client | TanStack Query | Recuperation, cache et synchronisation des donnees cote client |
 | Tableaux | TanStack Table | Tableaux de donnees filtrables et structurables |
-| Graphiques | Recharts | Visualisation des indicateurs du dashboard |
+| Graphiques | Recharts | Visualisation stylisee des classements du dashboard admin |
 | Notifications UI | Sonner | Messages de succes, erreur et feedback utilisateur |
 | Export | jsPDF, jspdf-autotable, PapaParse | Export PDF/CSV pour les donnees de gestion |
 
@@ -43,6 +43,7 @@
 - Fichiers de page courts, avec delegation vers composants locaux.
 - Seeders coherents avec une librairie/bibliotheque camerounaise.
 - Design responsive mobile, tablette et desktop.
+- Graphiques admin avec etats vides, tooltip lisible et exports CSV/PDF.
 
 ## Variables d'environnement principales
 
@@ -50,6 +51,10 @@
 MONGODB_URI=
 AUTH_SECRET=
 AUTH_URL=
+AUTH_GOOGLE_ID=
+AUTH_GOOGLE_SECRET=
+AUTH_GITHUB_ID=
+AUTH_GITHUB_SECRET=
 CLOUDINARY_CLOUD_NAME=
 CLOUDINARY_UPLOAD_PRESET=
 CLOUDINARY_API_KEY=

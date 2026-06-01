@@ -52,6 +52,7 @@ Le projet suit une approche iterative :
 - Profil utilisateur organise en tabs.
 - Suggestions dynamiques selon l'activite et l'authentification.
 - Theme clair/sombre avec adaptation globale.
+- Statistiques admin avec graphiques Recharts, synthese de tendance et exports CSV/PDF.
 
 ## Architecture fonctionnelle
 
@@ -87,6 +88,7 @@ flowchart LR
 - Une application exploitable par une librairie/bibliotheque locale.
 - Une navigation differenciee selon le role connecte.
 - Des operations courantes plus rapides : recherche, pret, retour, suivi.
+- Des indicateurs visuels plus lisibles pour analyser les livres, auteurs, categories, genres et editeurs.
 - Une base de donnees initiale representative du contexte local.
 - Une documentation technique et UML reutilisable pour la maintenance.
 

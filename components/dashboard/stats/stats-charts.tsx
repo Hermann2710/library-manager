@@ -1,172 +1,215 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo, useState } from "react";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  LabelList,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FileSpreadsheet, FileText, TrendingUp } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import Papa from "papaparse";
-import { useTheme } from "next-themes";
 
-/**
- * StatsCharts Component.
- * An interactive data visualization hub. It supports dynamic switching between 
- * different data sources (Books, Authors, etc.) and provides export capabilities.
- */
+type StatPoint = {
+  _id?: string;
+  title?: string;
+  name?: string;
+  count: number;
+};
+
+type StatsChartsProps = {
+  topBooks?: StatPoint[];
+  topAuthors?: StatPoint[];
+  topCategories?: StatPoint[];
+  topGenres?: StatPoint[];
+  topPublishers?: StatPoint[];
+};
+
+type ChartView = "books" | "authors" | "categories" | "genres" | "publishers";
+
+const views: Record<ChartView, { label: string; exportLabel: string; nameKey: "title" | "name"; empty: string }> = {
+  books: { label: "Livres", exportLabel: "Livre", nameKey: "title", empty: "Aucun emprunt de livre pour le moment." },
+  authors: { label: "Auteurs", exportLabel: "Auteur", nameKey: "name", empty: "Aucun auteur classe pour le moment." },
+  categories: { label: "Categories", exportLabel: "Categorie", nameKey: "name", empty: "Aucune categorie classee pour le moment." },
+  genres: { label: "Genres", exportLabel: "Genre", nameKey: "name", empty: "Aucun genre classe pour le moment." },
+  publishers: { label: "Editeurs", exportLabel: "Editeur", nameKey: "name", empty: "Aucun editeur classe pour le moment." },
+};
+
+const fills = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
+
+function getName(point: StatPoint, key: "title" | "name") {
+  return point[key] || "Non renseigne";
+}
+
+function CustomTooltip({ active, payload, label }: any) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="rounded-lg border bg-popover px-3 py-2 text-popover-foreground shadow-lg">
+      <p className="max-w-60 truncate text-xs font-black">{label}</p>
+      <p className="mt-1 text-[11px] font-bold text-primary">{payload[0].value} occurence(s)</p>
+    </div>
+  );
+}
+
 export function StatsCharts({
-    topBooks = [],
-    topAuthors = [],
-    topCategories = [],
-    topGenres = [],
-    topPublishers = []
-}: any) {
-    const [view, setView] = useState("books");
-    const { theme } = useTheme();
+  topBooks = [],
+  topAuthors = [],
+  topCategories = [],
+  topGenres = [],
+  topPublishers = [],
+}: StatsChartsProps) {
+  const [view, setView] = useState<ChartView>("books");
 
-    // Mapping view keys to their respective data sources and display labels
-    const getActiveData = () => {
-        switch (view) {
-            case "authors": return topAuthors;
-            case "categories": return topCategories;
-            case "genres": return topGenres;
-            case "publishers": return topPublishers;
-            default: return topBooks;
-        }
-    };
+  const datasets = useMemo(
+    () => ({
+      books: topBooks,
+      authors: topAuthors,
+      categories: topCategories,
+      genres: topGenres,
+      publishers: topPublishers,
+    }),
+    [topAuthors, topBooks, topCategories, topGenres, topPublishers],
+  );
 
-    const activeData = getActiveData();
-    const dataKey = view === "books" ? "title" : "name";
+  const activeConfig = views[view];
+  const activeData = datasets[view].map((point) => ({
+    label: getName(point, activeConfig.nameKey),
+    count: point.count,
+  }));
+  const total = activeData.reduce((sum, item) => sum + item.count, 0);
+  const leader = activeData[0];
 
-    // Theme-aware colors for Recharts to ensure text is visible in both modes
-    const chartColors = useMemo(() => ({
-        text: theme === "dark" ? "#a1a1aa" : "#4b5563", // zinc-400 or gray-600
-        tooltipBg: theme === "dark" ? "#18181b" : "#ffffff",
-        tooltipBorder: theme === "dark" ? "#27272a" : "#e4e4e7"
-    }), [theme]);
-
-    /**
-     * Handles the CSV export for the entire analytics dataset.
-     */
-    const exportCSV = () => {
-        const data = [
-            ...topBooks.map((b: any) => ({ Section: "Livre", Nom: b.title, Valeur: b.count })),
-            ...topAuthors.map((a: any) => ({ Section: "Auteur", Nom: a.name, Valeur: a.count })),
-            ...topCategories.map((c: any) => ({ Section: "Catégorie", Nom: c.name, Valeur: c.count })),
-            ...topGenres.map((g: any) => ({ Section: "Genre", Nom: g.name, Valeur: g.count })),
-            ...topPublishers.map((p: any) => ({ Section: "Éditeur", Nom: p.name, Valeur: p.count })),
-        ];
-        const csv = Papa.unparse(data);
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = `rapport_statistiques.csv`;
-        link.click();
-    };
-
-    /**
-     * Generates a clean PDF report with tables for each analytical section.
-     */
-    const exportPDF = () => {
-        const doc = new jsPDF();
-        doc.setFontSize(18);
-        doc.text("RAPPORT D'ANALYSE COMPLET", 14, 20);
-
-        const sections = [
-            { title: "TOP LIVRES", data: topBooks.map((b: any) => [b.title, b.count]), head: ['Titre', 'Emprunts'] },
-            { title: "TOP AUTEURS", data: topAuthors.map((a: any) => [a.name, a.count]), head: ['Auteur', 'Ouvrages'] },
-            { title: "CATÉGORIES", data: topCategories.map((c: any) => [c.name, c.count]), head: ['Catégorie', 'Volume'] },
-            { title: "GENRES", data: topGenres.map((g: any) => [g.name, g.count]), head: ['Genre', 'Volume'] },
-            { title: "ÉDITEURS", data: topPublishers.map((p: any) => [p.name, p.count]), head: ['Éditeur', 'Volume'] }
-        ];
-
-        let y = 30;
-        sections.forEach((s) => {
-            if (s.data.length === 0) return;
-            doc.setFontSize(11);
-            doc.text(s.title, 14, y + 5);
-            autoTable(doc, {
-                startY: y + 7,
-                head: [s.head],
-                body: s.data,
-                headStyles: { fillColor: [17, 17, 17] }
-            });
-            y = (doc as any).lastAutoTable.finalY + 10;
-        });
-        doc.save("rapport_statistiques.pdf");
-    };
-
-    return (
-        <div className="space-y-6 animate-in fade-in duration-700">
-            {/* Control Bar: Tab selection and Export actions */}
-            <div className="flex flex-col sm:flex-row justify-between gap-4">
-                <Tabs defaultValue="books" onValueChange={setView} className="w-full sm:w-auto">
-                    <TabsList className="bg-muted/50 border border-muted-foreground/10 h-10 p-1 rounded-xl">
-                        <TabsTrigger value="books" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Livres</TabsTrigger>
-                        <TabsTrigger value="authors" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Auteurs</TabsTrigger>
-                        <TabsTrigger value="categories" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Catégories</TabsTrigger>
-                        <TabsTrigger value="genres" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Genres</TabsTrigger>
-                        <TabsTrigger value="publishers" className="text-[10px] font-black uppercase tracking-widest px-4 rounded-lg">Éditeurs</TabsTrigger>
-                    </TabsList>
-                </Tabs>
-
-                <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-emerald-500/10 hover:text-emerald-500 transition-colors">
-                        <FileSpreadsheet className="mr-2 h-3.5 w-3.5" /> CSV
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={exportPDF} className="h-9 text-[9px] font-black uppercase tracking-widest rounded-xl hover:bg-red-500/10 hover:text-red-500 transition-colors">
-                        <FileText className="mr-2 h-3.5 w-3.5" /> PDF
-                    </Button>
-                </div>
-            </div>
-
-            {/* Chart Display: Highlighting data trends with theme-aware visuals */}
-            <Card className="border-none shadow-none bg-muted/20 backdrop-blur-sm rounded-3xl overflow-hidden">
-                <CardHeader className="flex flex-row items-center gap-2 border-b border-border/40 bg-muted/10">
-                    <TrendingUp className="h-4 w-4 text-primary" />
-                    <CardTitle className="text-xs font-black uppercase italic tracking-widest">
-                        Analyse par {view}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="h-80 w-full pt-8">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={activeData} layout="vertical" margin={{ left: 10, right: 30 }}>
-                            <XAxis type="number" hide />
-                            <YAxis
-                                dataKey={dataKey}
-                                type="category"
-                                width={120}
-                                tick={{ fontSize: 9, fontWeight: 900, fill: chartColors.text, textAnchor: 'end' }}
-                                axisLine={false}
-                                tickLine={false}
-                            />
-                            <Tooltip
-                                cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
-                                contentStyle={{
-                                    backgroundColor: chartColors.tooltipBg,
-                                    borderColor: chartColors.tooltipBorder,
-                                    borderRadius: '12px',
-                                    border: '1px solid',
-                                    fontWeight: 'bold',
-                                    fontSize: '11px',
-                                    color: 'hsl(var(--foreground))'
-                                }}
-                            />
-                            <Bar dataKey="count" radius={[0, 8, 8, 0]} barSize={16}>
-                                {activeData.map((_: any, index: number) => (
-                                    <Cell
-                                        key={`cell-${index}`}
-                                        fill={index === 0 ? 'hsl(var(--primary))' : 'hsl(var(--primary)/0.3)'}
-                                        className="transition-all duration-500"
-                                    />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </CardContent>
-            </Card>
-        </div>
+  function exportCSV() {
+    const rows = (Object.keys(views) as ChartView[]).flatMap((key) =>
+      datasets[key].map((point) => ({
+        Section: views[key].exportLabel,
+        Nom: getName(point, views[key].nameKey),
+        Valeur: point.count,
+      })),
     );
+    const csv = Papa.unparse(rows);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = "rapport_statistiques.csv";
+    link.click();
+  }
+
+  function exportPDF() {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text("Rapport d'analyse BiblioGest", 14, 20);
+
+    let y = 30;
+    (Object.keys(views) as ChartView[]).forEach((key) => {
+      const rows = datasets[key].map((point) => [getName(point, views[key].nameKey), point.count]);
+      if (!rows.length) return;
+
+      doc.setFontSize(11);
+      doc.text(views[key].label.toUpperCase(), 14, y + 5);
+      autoTable(doc, {
+        startY: y + 7,
+        head: [[views[key].label, "Valeur"]],
+        body: rows,
+        headStyles: { fillColor: [35, 92, 67] },
+      });
+      y = (doc as any).lastAutoTable.finalY + 10;
+    });
+
+    doc.save("rapport_statistiques.pdf");
+  }
+
+  return (
+    <div className="space-y-5 animate-in fade-in duration-500">
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+        <Tabs value={view} onValueChange={(value) => setView(value as ChartView)} className="min-w-0">
+          <TabsList className="grid h-auto grid-cols-2 gap-1 rounded-lg bg-muted/50 p-1 sm:grid-cols-5">
+            {(Object.keys(views) as ChartView[]).map((key) => (
+              <TabsTrigger key={key} value={key} className="rounded-md px-3 py-2 text-[10px] font-black uppercase tracking-widest">
+                {views[key].label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={exportCSV} className="h-9 rounded-md font-bold">
+            <FileSpreadsheet className="mr-2 h-4 w-4 text-emerald-600" /> CSV
+          </Button>
+          <Button variant="outline" size="sm" onClick={exportPDF} className="h-9 rounded-md font-bold">
+            <FileText className="mr-2 h-4 w-4 text-red-600" /> PDF
+          </Button>
+        </div>
+      </div>
+
+      <Card className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <CardHeader className="border-b bg-muted/20">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-1">
+              <CardTitle className="flex items-center gap-2 text-base font-black">
+                <TrendingUp className="h-5 w-5 text-primary" />
+                Classement {activeConfig.label.toLowerCase()}
+              </CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Lecture des volumes les plus representes dans les donnees de la librairie.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 sm:min-w-56">
+              <div className="rounded-lg border bg-background p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total</p>
+                <p className="mt-1 text-2xl font-black">{total}</p>
+              </div>
+              <div className="rounded-lg border bg-background p-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Leader</p>
+                <p className="mt-1 truncate text-sm font-black">{leader?.label || "Aucun"}</p>
+              </div>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-4 sm:p-6">
+          {activeData.length ? (
+            <div className="h-88 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={activeData} layout="vertical" margin={{ top: 8, right: 36, bottom: 8, left: 8 }}>
+                  <CartesianGrid horizontal={false} stroke="var(--border)" strokeDasharray="3 3" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} />
+                  <YAxis
+                    dataKey="label"
+                    type="category"
+                    width={132}
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "var(--foreground)", fontSize: 12, fontWeight: 700 }}
+                  />
+                  <Tooltip cursor={{ fill: "var(--muted)" }} content={<CustomTooltip />} />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} barSize={22}>
+                    {activeData.map((item, index) => (
+                      <Cell key={`${item.label}-${index}`} fill={fills[index % fills.length]} />
+                    ))}
+                    <LabelList dataKey="count" position="right" className="fill-foreground text-xs font-black" />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex h-72 items-center justify-center rounded-lg border border-dashed bg-muted/20 text-center">
+              <p className="max-w-sm text-sm text-muted-foreground">{activeConfig.empty}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

@@ -20,6 +20,8 @@ Ce document liste les controles a effectuer avant livraison ou demonstration.
 | Upload d'une couverture | Image envoyee sur Cloudinary et URL stockee |
 | Recherche d'un ouvrage | Resultats pertinents et temps de reponse acceptable |
 | Consultation d'un exemplaire | Statut, emplacement et disponibilite visibles |
+| Consultation des statistiques admin | Graphiques lisibles, tooltip fonctionnel et etat vide coherent |
+| Export des statistiques | Fichiers CSV et PDF generes depuis le dashboard admin |
 
 ## Membres, prets et retours
 
