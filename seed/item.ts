@@ -1,64 +1,48 @@
 import "dotenv/config";
 import mongoose from "mongoose";
 import { Item } from "../lib/models/Item.ts";
-import { Work } from "../lib/models/Work.ts";
 import { Location } from "../lib/models/Location.ts";
+import { Work } from "../lib/models/Work.ts";
 import dbConnect from "../lib/mongodb.ts";
 
 async function seedItems() {
   try {
-    console.log("⏳ Connexion à MongoDB pour les exemplaires (Items)...");
+    console.log("Connexion MongoDB - exemplaires");
     await dbConnect();
 
-    // Récupération des données parentes
-    const works = await Work.find();
-    const locations = await Location.find();
+    const works = await Work.find().sort({ title: 1 });
+    const locations = await Location.find().sort({ name: 1 });
 
     if (works.length === 0 || locations.length === 0) {
-      throw new Error("❌ Erreur : Tu dois d'abord seeder les Works et les Locations !");
+      throw new Error("Seed d'abord les ouvrages et les emplacements.");
     }
 
-    console.log("🧹 Nettoyage de la collection Item...");
     await Item.deleteMany({});
 
-    const itemsData = [];
-    let barcodeCounter = 1000;
+    const itemsData = works.flatMap((work, workIndex) => {
+      const copiesCount = workIndex % 3 === 0 ? 4 : 3;
 
-    // Statuts et conditions pour la distribution aléatoire
-    const statuses = ["Available", "Borrowed", "Lost", "Maintenance"];
-    const conditions = ["New", "Good", "Worn", "Damaged"];
+      return Array.from({ length: copiesCount }).map((_, copyIndex) => {
+        const status = copyIndex === 0 ? "Available" : copyIndex === 1 && workIndex % 4 === 0 ? "Borrowed" : "Available";
+        const condition = copyIndex === copiesCount - 1 && workIndex % 5 === 0 ? "Worn" : "Good";
+        const location = locations[(workIndex + copyIndex) % locations.length]._id;
+        const barcode = `BGC-${String(workIndex + 1).padStart(3, "0")}-${String(copyIndex + 1).padStart(2, "0")}`;
 
-    console.log(`🌱 Génération des exemplaires pour ${works.length} ouvrages...`);
-
-    for (const work of works) {
-      // Générer entre 2 et 5 exemplaires par ouvrage pour avoir une base solide
-      const copiesCount = Math.floor(Math.random() * 4) + 2;
-
-      for (let i = 0; i < copiesCount; i++) {
-        barcodeCounter++;
-        
-        // Distribution semi-aléatoire pour le réalisme
-        const randomStatus = Math.random() > 0.8 ? statuses[Math.floor(Math.random() * statuses.length)] : "Available";
-        const randomCondition = Math.random() > 0.7 ? conditions[Math.floor(Math.random() * conditions.length)] : "Good";
-        const randomLocation = locations[Math.floor(Math.random() * locations.length)]._id;
-
-        itemsData.push({
+        return {
           work: work._id,
-          barcode: `BC-${barcodeCounter}`,
-          location: randomLocation,
-          status: randomStatus,
-          condition: randomCondition,
-          notes: randomCondition === "Damaged" ? "Nécessite une réparation urgente." : ""
-        });
-      }
-    }
+          barcode,
+          location,
+          status,
+          condition,
+          notes: condition === "Worn" ? "Verifier la couverture avant prochain pret." : "",
+        };
+      });
+    });
 
-    console.log(`📦 Insertion de ${itemsData.length} exemplaires physiques...`);
     await Item.insertMany(itemsData);
-
-    console.log("✅ Seeding des exemplaires (Items) terminé avec succès !");
+    console.log(`${itemsData.length} exemplaires seedes avec succes`);
   } catch (error) {
-    console.error("❌ Erreur lors du seeding des items :", error);
+    console.error("Erreur seeding exemplaires:", error);
   } finally {
     await mongoose.connection.close();
     process.exit(0);

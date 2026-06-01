@@ -20,6 +20,10 @@ const nextConfig: NextConfig = {
         protocol: "https",
         hostname: "res.cloudinary.com", // Cloudinary Assets
       },
+      {
+        protocol: "https",
+        hostname: "covers.openlibrary.org",
+      },
     ],
   },
 };

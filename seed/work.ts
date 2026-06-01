@@ -1,80 +1,158 @@
 import "dotenv/config";
 import mongoose from "mongoose";
-import { Work } from "../lib/models/Work.ts";
 import { Author } from "../lib/models/Author.ts";
-import { Category, Genre } from "../lib/models/Taxonomy.ts";
 import { Publisher } from "../lib/models/Publisher.ts";
+import { Category, Genre } from "../lib/models/Taxonomy.ts";
+import { Work } from "../lib/models/Work.ts";
 import dbConnect from "../lib/mongodb.ts";
+
+function cover(isbn: string) {
+  return `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`;
+}
 
 async function seedWorks() {
   try {
-    console.log("⏳ Connexion à MongoDB pour les ouvrages...");
+    console.log("Connexion MongoDB - ouvrages");
     await dbConnect();
 
-    const authors = await Author.find();
-    const categories = await Category.find();
-    const genres = await Genre.find();
-    const publishers = await Publisher.find();
+    const [authors, categories, genres, publishers] = await Promise.all([
+      Author.find(),
+      Category.find(),
+      Genre.find(),
+      Publisher.find(),
+    ]);
 
-    console.log("🧹 Nettoyage de la collection Work...");
+    const getAuthor = (lastName: string) => authors.find((author) => author.lastName === lastName)?._id;
+    const getCategory = (name: string) => categories.find((category) => category.name === name)?._id;
+    const getGenre = (name: string) => genres.find((genre) => genre.name === name)?._id;
+    const getPublisher = (name: string) => publishers.find((publisher) => publisher.name === name)?._id;
+
     await Work.deleteMany({});
 
-    // Helper pour trouver un ID rapidement
-    const getAuth = (name: string) => authors.find(a => a.lastName === name)?._id;
-    const getCat = (name: string) => categories.find(c => c.name === name)?._id;
-    const getGen = (name: string) => genres.find(g => g.name === name)?._id;
-    const getPub = (name: string) => publishers.find(p => p.name === name)?._id;
-
     const worksData = [
-      // --- DÉVELOPPEMENT WEB ---
-      { title: "Clean Code", isbn: "9780132350884", language: "English", publisher: getPub("Pearson Education"), category: getCat("Développement Web"), authors: [getAuth("Martin")], genres: [getGen("Technique")] },
-      { title: "You Don't Know JS", isbn: "9781491904244", language: "English", publisher: getPub("O'Reilly Media"), category: getCat("Développement Web"), authors: [getAuth("Eich")], genres: [getGen("Guide")] },
-      { title: "Refactoring", isbn: "9780134757599", language: "English", publisher: getPub("Addison-Wesley"), category: getCat("Développement Web"), authors: [getAuth("Fowler")], genres: [getGen("Technique")] },
-      
-      // --- IA & DATA ---
-      { title: "Deep Learning", isbn: "9780262035613", language: "English", publisher: getPub("MIT Press"), category: getCat("Intelligence Artificielle"), authors: [getAuth("Turing")], genres: [getGen("Académique")] },
-      { title: "Human Compatible", isbn: "9780525558613", language: "English", publisher: getPub("Penguin Random House"), category: getCat("Intelligence Artificielle"), authors: [getAuth("Turing")], genres: [getGen("Essai")] },
-
-      // --- SCIENCE-FICTION ---
-      { title: "Dune", isbn: "9780441172719", language: "French", publisher: getPub("Penguin Random House"), category: getCat("Science-Fiction"), authors: [getAuth("Herbert")], genres: [getGen("Roman"), getGen("Fantaisie")] },
-      { title: "1984", isbn: "9780451524935", language: "French", publisher: getPub("HarperCollins"), category: getCat("Science-Fiction"), authors: [getAuth("Orwell")], genres: [getGen("Dystopie")] },
-      { title: "Foundation", isbn: "9780553293357", language: "English", publisher: getPub("HarperCollins"), category: getCat("Science-Fiction"), authors: [getAuth("Asimov")], genres: [getGen("Roman")] },
-      { title: "I, Robot", isbn: "9780553382563", language: "English", publisher: getPub("Spectra"), category: getCat("Science-Fiction"), authors: [getAuth("Asimov")], genres: [getGen("Nouvelles")] },
-
-      // --- DESIGN & UX ---
-      { title: "The Design of Everyday Things", isbn: "9780465050659", language: "English", publisher: getPub("Basic Books"), category: getCat("Design & UX/UI"), authors: [getAuth("Norman")], genres: [getGen("Manuel")] },
-      { title: "Don't Make Me Think", isbn: "9780321965516", language: "English", publisher: getPub("Pearson Education"), category: getCat("Design & UX/UI"), authors: [getAuth("Norman")], genres: [getGen("Guide")] },
-
-      // --- GESTION & AGILE ---
-      { title: "The Phoenix Project", isbn: "9780988262591", language: "English", publisher: getPub("IT Revolution Press"), category: getCat("Management Agile"), authors: [getAuth("Beck")], genres: [getGen("Professionnel")] },
-      { title: "Extreme Programming Explained", isbn: "9780321278654", language: "English", publisher: getPub("Addison-Wesley"), category: getCat("Management Agile"), authors: [getAuth("Beck")], genres: [getGen("Technique")] },
-      { title: "Domain-Driven Design", isbn: "9780321125217", language: "English", publisher: getPub("Addison-Wesley"), category: getCat("Architecture"), authors: [getAuth("Evans")], genres: [getGen("Technique")] },
-
-      // --- HISTOIRE & BIO ---
-      { title: "Steve Jobs", isbn: "9781451648539", language: "French", publisher: getPub("Simon & Schuster"), category: getCat("Histoire des Tech"), authors: [getAuth("Isaacson")], genres: [getGen("Biographie")] },
-      { title: "Turing's Cathedral", isbn: "9781400075997", language: "English", publisher: getPub("Pantheon"), category: getCat("Histoire des Tech"), authors: [getAuth("Turing")], genres: [getGen("Historique")] },
-
-      // --- SYSTÈME & BAS NIVEAU ---
-      { title: "The C Programming Language", isbn: "9780131103627", language: "English", publisher: getPub("Pearson Education"), category: getCat("Langages de Bas Niveau"), authors: [getAuth("Ritchie")], genres: [getGen("Manuel")] },
-      { title: "Rust Programming", isbn: "9781491927281", language: "English", publisher: getPub("O'Reilly Media"), category: getCat("Langages de Bas Niveau"), authors: [getAuth("Torvalds")], genres: [getGen("Technique")] },
-
-      // --- SÉCURITÉ ---
-      { title: "The Art of Deception", isbn: "9780471237129", language: "English", publisher: getPub("Wiley"), category: getCat("Cyber-sécurité"), authors: [getAuth("Mitnick")], genres: [getGen("Technique")] },
-      { title: "Ghost in the Wires", isbn: "9780316037723", language: "English", publisher: getPub("Little, Brown"), category: getCat("Cyber-sécurité"), authors: [getAuth("Mitnick")], genres: [getGen("Biographie")] },
-      
-      // --- DIVERS ---
-      { title: "The Pragmatic Programmer", isbn: "9780135957059", language: "English", publisher: getPub("Pragmatic Bookshelf"), category: getCat("Développement Web"), authors: [getAuth("Hunt")], genres: [getGen("Professionnel")] },
-      { title: "Mythical Man-Month", isbn: "9780201835953", language: "English", publisher: getPub("Addison-Wesley"), category: getCat("Management Agile"), authors: [getAuth("Brooks")], genres: [getGen("Essai")] }
+      {
+        title: "Ville cruelle",
+        isbn: "9782708705357",
+        language: "Francais",
+        publisher: getPublisher("Presence Africaine"),
+        category: getCategory("Litterature camerounaise"),
+        authors: [getAuthor("Beti")],
+        genres: [getGenre("Roman"), getGenre("Classique")],
+        coverImage: cover("9782708705357"),
+        description: "Un classique camerounais sur les tensions sociales et coloniales.",
+      },
+      {
+        title: "Le vieux negre et la medaille",
+        isbn: "9782266027021",
+        language: "Francais",
+        publisher: getPublisher("Editions CLE"),
+        category: getCategory("Litterature camerounaise"),
+        authors: [getAuthor("Oyono")],
+        genres: [getGenre("Roman"), getGenre("Classique")],
+        coverImage: cover("9782266027021"),
+        description: "Roman satirique majeur de Ferdinand Oyono.",
+      },
+      {
+        title: "C'est le soleil qui m'a brulee",
+        isbn: "9782290305577",
+        language: "Francais",
+        publisher: getPublisher("Gallimard"),
+        category: getCategory("Litterature camerounaise"),
+        authors: [getAuthor("Beyala")],
+        genres: [getGenre("Roman")],
+        coverImage: cover("9782290305577"),
+        description: "Portrait social et intime porte par une voix camerounaise forte.",
+      },
+      {
+        title: "Contours du jour qui vient",
+        isbn: "9782267018950",
+        language: "Francais",
+        publisher: getPublisher("Actes Sud"),
+        category: getCategory("Litterature camerounaise"),
+        authors: [getAuthor("Miano")],
+        genres: [getGenre("Roman")],
+        coverImage: cover("9782267018950"),
+        description: "Roman de Leonora Miano sur la memoire, l'enfance et la reconstruction.",
+      },
+      {
+        title: "Temps de chien",
+        isbn: "9782842612894",
+        language: "Francais",
+        publisher: getPublisher("Presence Africaine"),
+        category: getCategory("Litterature camerounaise"),
+        authors: [getAuthor("Nganang")],
+        genres: [getGenre("Roman")],
+        coverImage: cover("9782842612894"),
+        description: "Chronique urbaine et sociale d'une ville camerounaise.",
+      },
+      {
+        title: "Things Fall Apart",
+        isbn: "9780385474542",
+        language: "Anglais",
+        publisher: getPublisher("Heinemann"),
+        category: getCategory("Litterature africaine"),
+        authors: [getAuthor("Achebe")],
+        genres: [getGenre("Roman"), getGenre("Classique")],
+        coverImage: cover("9780385474542"),
+        description: "Classique de Chinua Achebe largement etudie en Afrique.",
+      },
+      {
+        title: "Une si longue lettre",
+        isbn: "9782842612895",
+        language: "Francais",
+        publisher: getPublisher("Presence Africaine"),
+        category: getCategory("Litterature africaine"),
+        authors: [getAuthor("Ba")],
+        genres: [getGenre("Roman"), getGenre("Scolaire")],
+        coverImage: cover("9782842612895"),
+        description: "Roman epistolaire incontournable de Mariama Ba.",
+      },
+      {
+        title: "Clean Code",
+        isbn: "9780132350884",
+        language: "Anglais",
+        publisher: getPublisher("Pearson Education"),
+        category: getCategory("Informatique"),
+        authors: [getAuthor("Martin")],
+        genres: [getGenre("Technique"), getGenre("Manuel")],
+        coverImage: cover("9780132350884"),
+        description: "Reference pour les bonnes pratiques de programmation.",
+      },
+      {
+        title: "Refactoring",
+        isbn: "9780134757599",
+        language: "Anglais",
+        publisher: getPublisher("Addison-Wesley"),
+        category: getCategory("Informatique"),
+        authors: [getAuthor("Fowler")],
+        genres: [getGenre("Technique")],
+        coverImage: cover("9780134757599"),
+        description: "Guide pratique pour ameliorer la structure du code existant.",
+      },
+      {
+        title: "The Lean Startup",
+        isbn: "9780307887894",
+        language: "Anglais",
+        publisher: getPublisher("Currency"),
+        category: getCategory("Gestion et entrepreneuriat"),
+        authors: [getAuthor("Ries")],
+        genres: [getGenre("Guide pratique"), getGenre("Essai")],
+        coverImage: cover("9780307887894"),
+        description: "Methode pour tester et faire grandir un projet entrepreneurial.",
+      },
     ];
 
-    console.log(`🌱 Insertion de ${worksData.length} ouvrages...`);
-    // On filtre pour éviter d'insérer des documents avec des IDs undefined (si un auteur/cat n'est pas trouvé)
-    const validWorks = worksData.filter(w => w.publisher && w.category && w.authors[0]);
-    await Work.insertMany(validWorks);
+    const validWorks = worksData.filter((work) =>
+      work.publisher &&
+      work.category &&
+      work.authors.every(Boolean) &&
+      work.genres.every(Boolean)
+    );
 
-    console.log("✅ Seeding des ouvrages terminé !");
+    await Work.insertMany(validWorks);
+    console.log(`${validWorks.length} ouvrages seedes avec succes`);
   } catch (error) {
-    console.error("❌ Erreur :", error);
+    console.error("Erreur seeding ouvrages:", error);
   } finally {
     await mongoose.connection.close();
     process.exit(0);

@@ -1,15 +1,14 @@
 // lib/mongodb.ts
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const MONGODB_URI = process.env.MONGODB_URI as string;
 
 if (!MONGODB_URI) {
-  throw new Error('Please define the MONGODB_URI environment variable inside .env.local');
+  throw new Error(
+    "Please define the MONGODB_URI environment variable inside .env.local",
+  );
 }
 
-/** * Global is used here to maintain a cached connection across hot reloads
- * in development. This prevents creating multiple connections.
- */
 let cached = (global as any).mongoose;
 
 if (!cached) {
@@ -24,13 +23,9 @@ async function dbConnect() {
   if (!cached.promise) {
     const opts = {
       bufferCommands: false,
+      dbName: "bibliogest",
     };
 
-    /**
-     * Initializing the connection promise.
-     * We use a promise to ensure that multiple calls to dbConnect 
-     * during the same event loop don't trigger multiple connections.
-     */
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
       return mongoose;
     });
