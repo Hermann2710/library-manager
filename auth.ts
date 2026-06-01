@@ -13,8 +13,8 @@ import { Member } from "@/lib/models/Member";
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: MongoDBAdapter(client),
   providers: [
-    Google,
-    GitHub,
+    Google({ allowDangerousEmailAccountLinking: true }),
+    GitHub({ allowDangerousEmailAccountLinking: true }),
     Credentials({
       async authorize(credentials) {
         const parsedCredentials = loginSchema.safeParse(credentials);
